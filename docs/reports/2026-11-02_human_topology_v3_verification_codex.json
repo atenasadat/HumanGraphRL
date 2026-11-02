@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-02",
+  "author": "Codex",
+  "protocol": "docs/reports/2026-11-02_human_topology_pilot_v3_codex.md",
+  "checks": {
+    "python_and_shell_syntax": true,
+    "reviewed_human_source_hashes": true,
+    "real_cached_encoder_references_and_sensitivities": true,
+    "joint_reward_and_risk_gate": true,
+    "policy_rng_preservation": true,
+    "tiny_qwen_lora_adam_exact_resume": true,
+    "zero_gradient_abort_and_partial_report": true,
+    "disjoint_public_evaluation_partitions": true,
+    "human_diagnostic_and_final_partitions": true,
+    "paired_comparisons_and_primary_intervals": true,
+    "automatic_reports_and_plots": true,
+    "full_training_gate": true
+  },
+  "not_performed": [
+    "Live frozen-judge inference/calibration on target CUDA hardware",
+    "Full pilot GPU training",
+    "Independent blinded human reviews"
+  ],
+  "pilot_runs": 63,
+  "pilot_stages": 95,
+  "training_launched": false
+}

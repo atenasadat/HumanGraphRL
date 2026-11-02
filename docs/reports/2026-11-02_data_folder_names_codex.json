@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-02",
+  "author": "Codex",
+  "raw_data": "data/think-aloud/",
+  "writing_transcripts_moved_from": "/Users/athenasaghi/Desktop/thougthgraph_studyData/raw_thinkaloud_review",
+  "writing_transcripts_moved_to": "data/think-aloud/writing_transcripts",
+  "processed_folder_renames": {
+    "form": "human_reasoning_profile_from_graph_snapshots",
+    "ideas": "proposal_ideas_extracted_from_study_graphs",
+    "programming_review": "programming_transcript_cells_and_task_boundaries",
+    "proposal_writing": "writing_task_segments_extracted_from_transcripts",
+    "reference": "model_generated_writing_reference_samples",
+    "rg_cache": "reasoning_graph_snapshots_from_study_sessions",
+    "task_descriptions": "proposal_task_instructions_extracted_from_study_app",
+    "thinkaloud": "cognitive_priors_and_audits_from_transcripts",
+    "experiment_results": "full_training_and_benchmark_results"
+  },
+  "historical_metadata": "Original data-file contents and provenance retained; historical embedded paths may reference earlier locations."
+}

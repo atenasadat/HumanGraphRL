@@ -1,0 +1,11 @@
+torch
+transformers>=4.40.0
+peft>=0.10.0
+accelerate>=0.28.0
+datasets
+sentence-transformers
+numpy
+pandas
+pyarrow
+scipy
+

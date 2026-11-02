@@ -1,0 +1,18 @@
+# Install into an environment with a CARC-compatible CUDA PyTorch build already available.
+torch>=2.5
+transformers>=4.51,<6
+peft>=0.14,<1
+accelerate>=1,<2
+bitsandbytes>=0.45,<1; platform_system == "Linux"
+# LCB's official release loader still uses dataset scripts.
+datasets>=3.2,<4
+huggingface-hub>=0.30,<2
+math-verify==0.8.0
+sentence-transformers>=3.4,<6
+numpy>=1.26,<3
+scipy>=1.12,<2
+matplotlib>=3.8,<4
+pebble>=5.1,<6
+python-Levenshtein>=0.26
+timeout-decorator>=0.5
+jsonlines>=4

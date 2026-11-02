@@ -1,0 +1,41 @@
+{
+  "models": [
+    "Qwen/Qwen2.5-7B-Instruct"
+  ],
+  "methods": [
+    "grpo",
+    "dr_grpo",
+    "shrinkage",
+    "t2t",
+    "human",
+    "shuffled",
+    "synthetic"
+  ],
+  "seeds": [
+    17,
+    29,
+    43
+  ],
+  "train_domains": [
+    "programming",
+    "writing",
+    "mixed"
+  ],
+  "steps": 250,
+  "token_budget": 500000,
+  "max_new_tokens": 2048,
+  "eval_max_new_tokens": 4096,
+  "eval_samples": 4,
+  "eval_limit_per_domain": 100,
+  "eval_every": 25,
+  "audit_groups": 16,
+  "audit_tasks": 2,
+  "audit_trained_methods": [
+    "grpo",
+    "human"
+  ],
+  "potential_scale": 0.1,
+  "controller": "fixed",
+  "prior_source": "unified",
+  "judge_model": null
+}

@@ -1,0 +1,327 @@
+[
+  {
+    "path": "scripts/pilots/legacy/human_cognitive_blueprint.json",
+    "target": "../../../processed_data/thinkaloud/human_cognitive_blueprint.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/pilots/legacy/model_cognitive_audit.json",
+    "target": "../../../processed_data/thinkaloud/model_cognitive_audit.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/pilots/legacy/verbalizations_extracted_segments.json",
+    "target": "../../../processed_data/thinkaloud/verbalizations_extracted_segments.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/pilots/legacy/proposal_source_hashes.json",
+    "target": "../../../processed_data/thinkaloud/proposal_source_hashes.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/pilots/legacy/cross_domain_divergence.json",
+    "target": "../../../processed_data/thinkaloud/cross_domain_divergence.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/pilots/legacy/programming_cognitive_blueprint.json",
+    "target": "../../../processed_data/thinkaloud/programming_cognitive_blueprint.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/pilots/legacy/unified_cognitive_blueprint.json",
+    "target": "../../../processed_data/thinkaloud/unified_cognitive_blueprint.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/pilots/legacy/proposal_cognitive_blueprint.json",
+    "target": "../../../processed_data/thinkaloud/proposal_cognitive_blueprint.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/pilots/legacy/verbalizations_classified_gemini_flash.json",
+    "target": "../../../processed_data/thinkaloud/verbalizations_classified_gemini_flash.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/run_multidomain_suite.py",
+    "target": "../../pilots/legacy/run_multidomain_suite.py",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/MULTIDOMAIN.md",
+    "target": "../../../docs/archive/2026-10-30_legacy_multidomain.md",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/carc_head_to_head_eval.sh",
+    "target": "../../pilots/legacy/carc_head_to_head_eval.sh",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/inspect_rollout.py",
+    "target": "../../pilots/legacy/inspect_rollout.py",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/audit.py",
+    "target": "../../pilots/legacy/audit.py",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/human_cognitive_blueprint.json",
+    "target": "../../../processed_data/thinkaloud/human_cognitive_blueprint.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/carc_job_fast.sh",
+    "target": "../../pilots/legacy/carc_job_fast.sh",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/audit_model_traces.py",
+    "target": "../../pilots/legacy/audit_model_traces.py",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/sync_to_carc.sh",
+    "target": "../../pilots/legacy/sync_to_carc.sh",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/model_cognitive_audit.json",
+    "target": "../../../processed_data/thinkaloud/model_cognitive_audit.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/diagnose_model_trace.py",
+    "target": "../../pilots/legacy/diagnose_model_trace.py",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/carc_job.sh",
+    "target": "../../pilots/legacy/carc_job.sh",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/verify_and_show.py",
+    "target": "../../pilots/legacy/verify_and_show.py",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/verbalizations_extracted_segments.json",
+    "target": "../../../processed_data/thinkaloud/verbalizations_extracted_segments.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/run_multimodel_suite.py",
+    "target": "../../pilots/legacy/run_multimodel_suite.py",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/README.md",
+    "target": "../../../docs/archive/2026-10-30_legacy_readme.md",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/run_full_local_experiment.py",
+    "target": "../../pilots/legacy/run_full_local_experiment.py",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/proposal_source_hashes.json",
+    "target": "../../../processed_data/thinkaloud/proposal_source_hashes.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/cross_domain_divergence.json",
+    "target": "../../../processed_data/thinkaloud/cross_domain_divergence.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/carc_single_job_multimodel.sh",
+    "target": "../../pilots/legacy/carc_single_job_multimodel.sh",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/programming_cognitive_blueprint.json",
+    "target": "../../../processed_data/thinkaloud/programming_cognitive_blueprint.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/unified_cognitive_blueprint.json",
+    "target": "../../../processed_data/thinkaloud/unified_cognitive_blueprint.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/carc_multidomain_job.sh",
+    "target": "../../pilots/legacy/carc_multidomain_job.sh",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/run_pilot_shaping_comparison.py",
+    "target": "../../pilots/legacy/run_pilot_shaping_comparison.py",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/carc_benchmark_job.sh",
+    "target": "../../pilots/legacy/carc_benchmark_job.sh",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/proposal_cognitive_blueprint.json",
+    "target": "../../../processed_data/thinkaloud/proposal_cognitive_blueprint.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/verbalizations_classified_gemini_flash.json",
+    "target": "../../../processed_data/thinkaloud/verbalizations_classified_gemini_flash.json",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/TRAINING_READINESS.md",
+    "target": "/Users/athenasaghi/VSProjects/TopGRPO/runs/thinkaloud_results/TRAINING_READINESS.md",
+    "valid": true
+  },
+  {
+    "path": "scripts/experiment/thinkaloud_rl/run_multidomain_local.sh",
+    "target": "../../pilots/legacy/run_multidomain_local.sh",
+    "valid": true
+  },
+  {
+    "path": "data/form",
+    "target": "../processed_data/form",
+    "valid": true
+  },
+  {
+    "path": "data/prompts.jsonl",
+    "target": "../processed_data/prompts.jsonl",
+    "valid": true
+  },
+  {
+    "path": "data/programming_review",
+    "target": "../processed_data/programming_review",
+    "valid": true
+  },
+  {
+    "path": "data/task_descriptions",
+    "target": "../processed_data/task_descriptions",
+    "valid": true
+  },
+  {
+    "path": "data/ideas",
+    "target": "../processed_data/ideas",
+    "valid": true
+  },
+  {
+    "path": "data/rg_cache",
+    "target": "../processed_data/rg_cache",
+    "valid": true
+  },
+  {
+    "path": "data/reference",
+    "target": "../processed_data/reference",
+    "valid": true
+  },
+  {
+    "path": "pilots/results/legacy_runs/thinkaloud_rl_inventory",
+    "target": "/Users/athenasaghi/VSProjects/TopGRPO/runs/thinkaloud_results/thinkaloud_rl_inventory",
+    "valid": true
+  },
+  {
+    "path": "pilots/results/legacy_runs/thinkaloud_training_v2",
+    "target": "/Users/athenasaghi/VSProjects/TopGRPO/runs/thinkaloud_results/thinkaloud_training_v2",
+    "valid": true
+  },
+  {
+    "path": "pilots/results/legacy_runs/thinkaloud_training_validation",
+    "target": "/Users/athenasaghi/VSProjects/TopGRPO/runs/thinkaloud_results/thinkaloud_training_validation",
+    "valid": true
+  },
+  {
+    "path": "pilots/results/legacy_runs/thinkaloud_training_v1",
+    "target": "/Users/athenasaghi/VSProjects/TopGRPO/runs/thinkaloud_results/thinkaloud_training_v1",
+    "valid": true
+  },
+  {
+    "path": "pilots/figures/legacy_2026-10-29/fig1_cognitive_collapse.png",
+    "target": "pilot_01_cognitive_collapse.png",
+    "valid": true
+  },
+  {
+    "path": "pilots/figures/legacy_2026-10-29/fig3_gradient_dynamics.pdf",
+    "target": "pilot_03_gradient_dynamics.pdf",
+    "valid": true
+  },
+  {
+    "path": "pilots/figures/legacy_2026-10-29/fig1_cognitive_collapse.pdf",
+    "target": "pilot_01_cognitive_collapse.pdf",
+    "valid": true
+  },
+  {
+    "path": "pilots/figures/legacy_2026-10-29/fig3_gradient_dynamics.png",
+    "target": "pilot_03_gradient_dynamics.png",
+    "valid": true
+  },
+  {
+    "path": "pilots/figures/legacy_2026-10-29/fig2_multidomain_performance.pdf",
+    "target": "pilot_02_multidomain_performance.pdf",
+    "valid": true
+  },
+  {
+    "path": "pilots/figures/legacy_2026-10-29/fig2_multidomain_performance.png",
+    "target": "pilot_02_multidomain_performance.png",
+    "valid": true
+  },
+  {
+    "path": "pilots/figures/legacy_2026-10-29/fig4_training_curves.png",
+    "target": "pilot_04_training_curves.png",
+    "valid": true
+  },
+  {
+    "path": "pilots/figures/legacy_2026-10-29/fig4_training_curves.pdf",
+    "target": "pilot_04_training_curves.pdf",
+    "valid": true
+  },
+  {
+    "path": "carc",
+    "target": "scripts/pilots/carc_legacy",
+    "valid": true
+  },
+  {
+    "path": "Data_programming",
+    "target": "data/raw/programming_transcripts",
+    "valid": true
+  },
+  {
+    "path": "experiments",
+    "target": "scripts/experiment",
+    "valid": true
+  },
+  {
+    "path": "generate_paper_plots.py",
+    "target": "scripts/pilots/generate_paper_plots.py",
+    "valid": true
+  },
+  {
+    "path": "Data_proposal_writing",
+    "target": "processed_data/proposal_writing",
+    "valid": true
+  },
+  {
+    "path": "figures",
+    "target": "pilots/figures/legacy_2026-10-29",
+    "valid": true
+  },
+  {
+    "path": "runs",
+    "target": "pilots/results/legacy_runs",
+    "valid": true
+  },
+  {
+    "path": "compute_execution_metrics.py",
+    "target": "scripts/pilots/compute_execution_metrics.py",
+    "valid": true
+  }
+]

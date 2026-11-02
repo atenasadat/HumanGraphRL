@@ -1,0 +1,102 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing & linting
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# Project run outputs & experiment checkpoints
+runs/
+checkpoint*/
+*.safetensors
+*.pt
+*.pth
+*.bin
+*.ckpt
+*.onnx
+
+# Data caches & generated training data
+data/rg_cache/
+data/verl/
+
+# Experiment tracking & logs
+wandb/
+mlruns/
+lightning_logs/
+*.log
+
+# Slurm batch execution logs
+slurm-*.out
+slurm-*.err
+
+# Environment & local configurations
+.env
+.env.*
+!.env.example
+
+# macOS system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Editor & IDE configurations
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.pytest_cache/
+# Reorganized artifacts and environments
+/data/
+/processed_data/
+/pilots/
+pilots/results/
+processed_data/full_training_and_benchmark_results/
+processed_data/v0_reasoning_graph_snapshots_from_study_sessions/
+.venv-paper/
+
+scripts/experiment/.venv/
+scripts/experiment/.venv-paper/

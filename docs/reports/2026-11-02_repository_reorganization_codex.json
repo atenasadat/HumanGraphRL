@@ -1,0 +1,267 @@
+{
+  "date": "2026-11-02",
+  "author": "Codex",
+  "moves": [
+    {
+      "old": "experiments",
+      "new": "scripts/experiment",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "Data_programming",
+      "new": "data/raw/programming_transcripts",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "Data_proposal_writing",
+      "new": "processed_data/proposal_writing",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "data/programming_review",
+      "new": "processed_data/programming_review",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "data/form",
+      "new": "processed_data/form",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "data/ideas",
+      "new": "processed_data/ideas",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "data/prompts.jsonl",
+      "new": "processed_data/prompts.jsonl",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "data/reference",
+      "new": "processed_data/reference",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "data/rg_cache",
+      "new": "processed_data/rg_cache",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "data/task_descriptions",
+      "new": "processed_data/task_descriptions",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/human_cognitive_blueprint.json",
+      "new": "processed_data/thinkaloud/human_cognitive_blueprint.json",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/model_cognitive_audit.json",
+      "new": "processed_data/thinkaloud/model_cognitive_audit.json",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/verbalizations_extracted_segments.json",
+      "new": "processed_data/thinkaloud/verbalizations_extracted_segments.json",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/proposal_source_hashes.json",
+      "new": "processed_data/thinkaloud/proposal_source_hashes.json",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/cross_domain_divergence.json",
+      "new": "processed_data/thinkaloud/cross_domain_divergence.json",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/programming_cognitive_blueprint.json",
+      "new": "processed_data/thinkaloud/programming_cognitive_blueprint.json",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/unified_cognitive_blueprint.json",
+      "new": "processed_data/thinkaloud/unified_cognitive_blueprint.json",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/proposal_cognitive_blueprint.json",
+      "new": "processed_data/thinkaloud/proposal_cognitive_blueprint.json",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/verbalizations_classified_gemini_flash.json",
+      "new": "processed_data/thinkaloud/verbalizations_classified_gemini_flash.json",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "runs",
+      "new": "pilots/results/legacy_runs",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "figures",
+      "new": "pilots/figures/legacy_2026-10-29",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "literature",
+      "new": "docs/literature",
+      "compatibility_symlink": false
+    },
+    {
+      "old": "research_questions_thinkaloud.md",
+      "new": "docs/ideas/2026-10-25_research_questions_thinkaloud.md",
+      "compatibility_symlink": false
+    },
+    {
+      "old": "rl_ideas_thinkaloud.md",
+      "new": "docs/ideas/2026-10-25_rl_ideas_thinkaloud.md",
+      "compatibility_symlink": false
+    },
+    {
+      "old": "rl_ideas_thinkaloud_technical.md",
+      "new": "docs/ideas/2026-10-26_rl_ideas_thinkaloud_technical.md",
+      "compatibility_symlink": false
+    },
+    {
+      "old": "TOPOLOGY_RESEARCH_REPORT.md",
+      "new": "docs/reports/2026-10-10_topology_research_report.md",
+      "compatibility_symlink": false
+    },
+    {
+      "old": "lit_review_llm_cot_human_reasoning.md",
+      "new": "docs/reports/2026-10-24_lit_review_llm_cot_human_reasoning.md",
+      "compatibility_symlink": false
+    },
+    {
+      "old": "README.md",
+      "new": "docs/archive/2026-10-16_legacy_repository_readme.md",
+      "compatibility_symlink": false
+    },
+    {
+      "old": "compute_execution_metrics.py",
+      "new": "scripts/pilots/compute_execution_metrics.py",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "generate_paper_plots.py",
+      "new": "scripts/pilots/generate_paper_plots.py",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "carc",
+      "new": "scripts/pilots/carc_legacy",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "carc_paper_suite.tar.gz",
+      "new": "pilots/archive/2026-10-30_carc_paper_suite_legacy.tar.gz",
+      "compatibility_symlink": false
+    },
+    {
+      "old": "--exclude",
+      "new": "pilots/archive/legacy_empty_exclude_file",
+      "compatibility_symlink": false
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/run_pilot_shaping_comparison.py",
+      "new": "scripts/pilots/legacy/run_pilot_shaping_comparison.py",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/run_full_local_experiment.py",
+      "new": "scripts/pilots/legacy/run_full_local_experiment.py",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/run_multidomain_suite.py",
+      "new": "scripts/pilots/legacy/run_multidomain_suite.py",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/run_multimodel_suite.py",
+      "new": "scripts/pilots/legacy/run_multimodel_suite.py",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/verify_and_show.py",
+      "new": "scripts/pilots/legacy/verify_and_show.py",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/audit_model_traces.py",
+      "new": "scripts/pilots/legacy/audit_model_traces.py",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/diagnose_model_trace.py",
+      "new": "scripts/pilots/legacy/diagnose_model_trace.py",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/inspect_rollout.py",
+      "new": "scripts/pilots/legacy/inspect_rollout.py",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/audit.py",
+      "new": "scripts/pilots/legacy/audit.py",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/run_multidomain_local.sh",
+      "new": "scripts/pilots/legacy/run_multidomain_local.sh",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/carc_job.sh",
+      "new": "scripts/pilots/legacy/carc_job.sh",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/carc_job_fast.sh",
+      "new": "scripts/pilots/legacy/carc_job_fast.sh",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/carc_head_to_head_eval.sh",
+      "new": "scripts/pilots/legacy/carc_head_to_head_eval.sh",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/carc_single_job_multimodel.sh",
+      "new": "scripts/pilots/legacy/carc_single_job_multimodel.sh",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/carc_multidomain_job.sh",
+      "new": "scripts/pilots/legacy/carc_multidomain_job.sh",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/carc_benchmark_job.sh",
+      "new": "scripts/pilots/legacy/carc_benchmark_job.sh",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/sync_to_carc.sh",
+      "new": "scripts/pilots/legacy/sync_to_carc.sh",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/README.md",
+      "new": "docs/archive/2026-10-30_legacy_readme.md",
+      "compatibility_symlink": true
+    },
+    {
+      "old": "scripts/experiment/thinkaloud_rl/MULTIDOMAIN.md",
+      "new": "docs/archive/2026-10-30_legacy_multidomain.md",
+      "compatibility_symlink": true
+    }
+  ],
+  "policy": "Historical contents preserved; compatibility symlinks retain previous paths."
+}
