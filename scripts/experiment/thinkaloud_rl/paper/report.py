@@ -113,7 +113,7 @@ def curves(root):
     import matplotlib.pyplot as plt
     root=Path(root)
     fig,axes=plt.subplots(3,2,figsize=(11,12),squeeze=False)
-    for run in sorted((root/'runs').iterdir()):
+    for run in sorted((root/'runs').glob('*')):
         vals=defaultdict(list)
         for p in sorted((run/'validation').glob('*/summary.json')):
             d=json.loads(p.read_text());state=d.get('training_state') or {}
@@ -130,7 +130,7 @@ def curves(root):
                 for column in (0,1):
                     axes[row,column].plot([x[column] for x in points],[x[2] for x in points],label=run.name)
     for row,ylabel in enumerate(('Validation coding Pass@1','Validation writing score (judge or legacy proxy)','Held-out human graph similarity (proxy)')):
-        for column,xlabel in enumerate(('Generated training tokens','Training GPU-hours')):
+        for column,xlabel in enumerate(('Generated training tokens','Training wall-clock hours')):
             ax=axes[row,column]
             ax.set_xlabel(xlabel);ax.set_ylabel(ylabel);ax.grid(alpha=.2)
             if ax.lines:ax.legend(fontsize=5)

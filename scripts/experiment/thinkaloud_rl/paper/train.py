@@ -17,7 +17,7 @@ from transformers import set_seed
 from . import model as policy
 from .algorithms import COGNITIVE, METHODS, advantages, prefix_arrays, t2t_rewards, dra_rewards,dapo_soft_overlong
 from .structure import TOPOLOGY
-from .common import atomic_json, digest, read_jsonl, stable_seed
+from .common import atomic_json, digest, read_jsonl, stable_seed, validate_training_schedule
 from .scoring import score
 
 STOP=False
@@ -30,12 +30,14 @@ def request_stop(*_):
 
 def rng_state():
     return {'python':random.getstate(),'numpy':np.random.get_state(),'torch':torch.get_rng_state(),
-            'cuda':torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None}
+            'cuda':torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+            'mps':torch.mps.get_rng_state() if torch.backends.mps.is_available() else None}
 
 
 def restore_rng(state):
     random.setstate(state['python']);np.random.set_state(state['numpy']);torch.set_rng_state(state['torch'])
     if state['cuda'] is not None:torch.cuda.set_rng_state_all(state['cuda'])
+    if state.get('mps') is not None:torch.mps.set_rng_state(state['mps'])
 
 
 def checkpoint(out,model,tok,optimizer,state,value_model=None,value_optimizer=None):
@@ -67,7 +69,7 @@ def gradients(model,rollouts,rewards,adv,prior,config,value_model=None):
     for i,group_rollouts in enumerate(rollouts):
         for j,r in enumerate(group_rollouts):
             logp,all_logp=policy.log_probs(model,r)
-            potential,features=prefix_arrays(model_tokenizer(model),r['ids'],prior[r['domain']],horizon,r['prompt_opens_think']) if method in COGNITIVE or value_model is not None else (None,None)
+            potential,features=prefix_arrays(model_tokenizer(model),r['ids'],prior[r['domain']],horizon,r['prompt_opens_think'],r.get('reasoning_tokens')) if method in COGNITIVE or value_model is not None else (None,None)
             device=logp.device
             a=adv[i,j].to(device)
             if value_model is not None:
@@ -98,6 +100,8 @@ def model_tokenizer(model):
 
 def train(config,tasks,priors,out,lcb_root=None):
     global STOP
+    if lcb_root is not None:config={**config,'lcb_root':str(Path(lcb_root).resolve())}
+    validate_training_schedule(config)
     STOP=False
     signal.signal(signal.SIGTERM,request_stop)
     signal.signal(signal.SIGUSR1,request_stop)
@@ -166,8 +170,10 @@ def train(config,tasks,priors,out,lcb_root=None):
             # same RNG; retain all previously committed weights and optimizer state.
             restore_rng(before)
             checkpoint(out,model,tok,optimizer,state,value_model,value_optimizer)
-            atomic_json(out/'judge_failure.json',{'step':state['step'],'error':str(exc),
-                        'resume':'Replay incomplete batch or validation from the committed state'})
+            # Walltime/preemption stops are not judge failures.
+            if isinstance(exc,JudgeResponseError):
+                atomic_json(out/'judge_failure.json',{'step':state['step'],'error':str(exc),
+                            'resume':'Replay incomplete batch or validation from the committed state'})
             from .diagnostics import training_report
             training_report(out)
             raise
@@ -180,6 +186,10 @@ def train(config,tasks,priors,out,lcb_root=None):
     def validate_current():
         nonlocal validated_step
         before=rng_state();validation_start=time.monotonic()
+        # Validation can fail outside the judge (OOM, I/O, process termination).
+        # Its pending marker must always refer to a committed training state,
+        # even when eval_every and checkpoint_every are not aligned.
+        checkpoint(out,model,tok,optimizer,state,value_model,value_optimizer)
         atomic_json(out/'pending_validation.json',{'step':state['step']})
         judge_guard(lambda:evaluate(model,tok,val_tasks,config,out/'validation'/f'step_{state["step"]:06d}',lcb_root=lcb_root,
                  samples=config.get('validation_samples',2 if runtime else 1),train_state=state.copy(),runtime=runtime),before)
@@ -187,11 +197,17 @@ def train(config,tasks,priors,out,lcb_root=None):
         if runtime:state['validation_seconds']+=time.monotonic()-validation_start
         (out/'pending_validation.json').unlink()
         validated_step=state['step']
-    if val_tasks and ((out/'pending_validation.json').exists() or (runtime and state['step']==0)):
+    # A completed step-0 validation must not be replayed: its signature includes
+    # validation_seconds, which a step-1 interruption checkpoint has since advanced.
+    initial_done=(out/'validation'/'step_000000'/'summary.json').exists()
+    if val_tasks and ((out/'pending_validation.json').exists() or (runtime and state['step']==0 and not initial_done)):
         if (out/'pending_validation.json').exists():
             pending=json.loads((out/'pending_validation.json').read_text())
             if pending['step']!=state['step']:raise ValueError('Pending validation/checkpoint step mismatch')
         validate_current()
+    # step counts processed batches, including tied-reward batches. Actual
+    # nonzero optimizer updates are recorded separately; do not resample until
+    # a method reaches an update quota and thereby change its data exposure.
     while state['step']<config['steps'] and (not budget or state['tokens']<budget):
         if STOP:break
         step_rng=rng_state()
@@ -214,14 +230,17 @@ def train(config,tasks,priors,out,lcb_root=None):
                     restore_rng(step_rng)
                     checkpoint(out,model,tok,optimizer,state,value_model,value_optimizer)
                     return False
-                r=policy.sample(model,tok,task,config);r['domain']=task['domain']
+                r=judge_guard(lambda:policy.sample(model,tok,task,config),step_rng);r['domain']=task['domain']
                 scored=judge_guard(lambda:runtime.assess(r['text'],task),step_rng) if runtime else score(r['text'],task,lcb_root=lcb_root,timeout=config.get('code_timeout',6))
                 if scored['reward'] is None:raise ValueError('Training requires a defined reward')
                 if not math.isfinite(scored['reward']):raise ArithmeticError('Nonfinite training reward')
                 group.append(r);group_rewards.append(scored['reward'])
                 saved_rows.append({'step':step,'task_id':task['id'],'domain':task['domain'],'sample':j,
                     'text':r['text'],'prompt':task['prompt'],'token_ids':r['ids'],'prompt_tokens':r['prefix'],
-                    'truncated':r['truncated'],**scored})
+                    'truncated':r['truncated'],'generation_protocol':r.get('generation_protocol','tagged_single_pass'),
+                    'reasoning_tokens':r.get('reasoning_tokens'),
+                    'reasoning_truncated':r.get('reasoning_truncated'),
+                    'answer_truncated':r.get('answer_truncated'),**scored})
             effective_group=group_rewards
             if config['method']=='dapo_one_update':
                 effective_group=[dapo_soft_overlong(y,len(r['ids']),config['max_new_tokens'],
@@ -288,22 +307,29 @@ def train(config,tasks,priors,out,lcb_root=None):
                        output_risk_fraction=float(np.mean([r['output_assessment']['risk_detected'] for r in saved_rows])),
                        reward_usage=state['reward_usage'],prompt_tokens=state['prompt_tokens'],rollouts=state['rollouts'],
                        peak_gpu_allocated_bytes=state['peak_gpu_allocated_bytes'])
+        if any(r.get('reasoning_tokens') is not None for r in saved_rows):
+            row.update(reasoning_truncated_fraction=float(np.mean([r['reasoning_truncated'] for r in saved_rows])),
+                       answer_truncated_fraction=float(np.mean([r['answer_truncated'] for r in saved_rows])),
+                       mean_reasoning_tokens=float(np.mean([r['reasoning_tokens'] for r in saved_rows])))
         atomic_json(out/'steps'/f'{step:06d}.json',{'metrics':row,'rollouts':saved_rows})
         if runtime and state['consecutive_zero_task_updates']>=config.get('max_zero_gradient_steps',10):
             checkpoint(out,model,tok,optimizer,state,value_model,value_optimizer)
             from .diagnostics import training_report
             training_report(out)
-            raise RuntimeError('No outcome-driven gradient for consecutive batches; inspect reward/format/difficulty before spending more pilot compute')
+            raise RuntimeError('No reward-driven gradient for consecutive batches; inspect reward/format/difficulty before spending more pilot compute')
         print(json.dumps({'run':out.name,**row}),flush=True)
         if step%config.get('checkpoint_every',5)==0 or STOP:
             checkpoint(out,model,tok,optimizer,state,value_model,value_optimizer)
         if val_tasks and step%config.get('eval_every',20)==0 and not STOP:
             validate_current()
-    if runtime and val_tasks and not STOP and state['step']%config.get('eval_every',20) and validated_step!=state['step']:
+    # A stop can arrive after the last optimizer update but before validation,
+    # including when the final step is exactly divisible by eval_every.
+    final_validation_done=(out/'validation'/f'step_{state["step"]:06d}'/'summary.json').exists()
+    if val_tasks and not STOP and validated_step!=state['step'] and not final_validation_done:
         validate_current()
     if runtime:state['reward_usage']=usage()
     checkpoint(out,model,tok,optimizer,state,value_model,value_optimizer)
-    complete=state['step']>=config['steps'] or bool(budget and state['tokens']>=budget)
+    complete=(state['step']>=config['steps'] or bool(budget and state['tokens']>=budget)) and not STOP
     if complete:atomic_json(out/'complete.json',{**state,'stop_reason':'token_budget' if budget and state['tokens']>=budget else 'steps'})
     from .diagnostics import training_report
     training_report(out)

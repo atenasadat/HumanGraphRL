@@ -56,17 +56,39 @@ def training_report(out):
             for (domain,key),points in series.items()}
     risks=[m['output_risk_fraction'] for m in metrics if 'output_risk_fraction' in m]
     trunc=[m['truncated_fraction'] for m in metrics if 'truncated_fraction' in m]
+    graphs=[r['structure']['valid'] for record in records for r in record.get('rollouts',[])
+            if 'valid' in r.get('structure',{})]
+    stage_truncation={}
+    for stage in ('reasoning','answer'):
+        values=[]
+        for record in records:
+            key=stage+'_truncated_fraction'
+            if key in record['metrics']:values.append(record['metrics'][key])
+            else:
+                flags=[r[stage+'_truncated'] for r in record.get('rollouts',[]) if r.get(stage+'_truncated') is not None]
+                if flags:values.append(sum(flags)/len(flags))
+        stage_truncation['mean_'+stage+'_truncation_fraction']=sum(values)/len(values) if values else None
+    optimizer_updates=completed.get('optimizer_updates',sum(m.get('preclip_norm',0)>0 for m in metrics))
     report={'run':out.name,'complete':(out/'complete.json').exists(),'requested_updates':config.get('steps'),
-        'completed_updates':completed.get('step',len(metrics)),'optimizer_updates':completed.get('optimizer_updates'),
+        'requested_update_batches':config.get('steps'),
+        'training_stop_rule':config.get('training_stop_rule','steps_or_tokens' if config.get('token_budget') else 'fixed_batches'),
+        'cumulative_token_cap':config.get('token_budget',0),
+        'stop_reason':completed.get('stop_reason'),
+        'completed_batches':completed.get('step',len(metrics)),
+        'completed_updates':optimizer_updates,'optimizer_updates':optimizer_updates,
         'committed_training_generated_tokens':completed.get('tokens'),
         'committed_training_prompt_tokens':completed.get('prompt_tokens'),
         'training_wall_seconds':completed.get('seconds'),'validation_wall_seconds':completed.get('validation_seconds'),
         'peak_gpu_allocated_bytes':completed.get('peak_gpu_allocated_bytes'),
         'measured_generation_usage':dict(usage),'validation_trends':slopes,
-        'health':{'finite_logged_metrics':finite,'mean_truncation_fraction':sum(trunc)/len(trunc) if trunc else None,
+        'health':{**stage_truncation,'finite_logged_metrics':finite,
+                  'valid_structure_fraction':sum(graphs)/len(graphs) if graphs else None,
+                  'mean_truncation_fraction':sum(trunc)/len(trunc) if trunc else None,
                   'mean_output_risk_fraction':sum(risks)/len(risks) if risks else None,
                   'zero_task_gradient_steps':sum(m.get('no_task_gradient',False) for m in metrics)},
         'limitations':['Flat validation tails are not a convergence proof.',
+            'steps and the legacy requested_updates field count batches, not nonzero optimizer updates.',
+            'Equal batch counts match committed response counts only without dynamic resampling; retries add compute.',
             'Wall time is allocated job time, not active GPU-kernel time.',
             'Generation ledger includes completed retry calls; hard-killed partial calls are unmeasured.',
             'Semantic graph similarity is not evidence of human cognition or logical faithfulness.',
@@ -99,6 +121,10 @@ def suite_diagnostics(root):
         'no_increasing_validation_tail':bool(runs) and all(r['validation_trends'] and
             all(v['status']=='flat_tail_not_proof_of_convergence' for v in r['validation_trends'].values()) for r in runs),
     }
+    probes={j['id']:{'gate':read(root/'learning_preflight'/j['id']/'learning_gate.json',{}),
+                     'training':read(root/'learning_preflight'/j['id']/'training_report.json',{})}
+            for j in plan.get('jobs',[]) if j['action']=='learning_preflight'}
+    if probes:checks['learning_preflights_passed']=all(p['gate'].get('passed',False) for p in probes.values())
     for kind in ('graph','output'):
         review_row=review[kind]
         checks['human_'+kind+'_review_adequate']=bool(review_row['complete'] and
@@ -121,7 +147,7 @@ def suite_diagnostics(root):
     checks['valid_graph_coverage']=bool(coverage) and min(coverage)>=config.get('min_valid_graph_fraction',.7)
     checks['cue_word_sensitivity_within_limit']=bool(cue) and max(cue)<=config.get('max_cue_score_shift',.1)
     checks['clustering_sensitivity_within_limit']=bool(threshold) and max(threshold)<=config.get('max_threshold_score_range',.2)
-    result={'runs':runs,'checks':checks,'review_status':review,'generation_usage_all_stages':dict(measured),
+    result={'runs':runs,'learning_preflights':probes,'checks':checks,'review_status':review,'generation_usage_all_stages':dict(measured),
         'seed_uncertainty':'Single-seed pilot: cross-seed variability is unmeasured' if len(set(config.get('seeds',[])))==1 else 'Multiple seeds; inspect paired intervals',
         'allocation_wall_seconds_measured_attempts':sum(a.get('wall_seconds',0) for a in attempts),
         'unfinished_allocation_attempts':sum('wall_seconds' not in a for a in attempts),
@@ -131,9 +157,9 @@ def suite_diagnostics(root):
     lines=['# Pilot diagnostics','', 'Status: '+result['readiness'],'',
            '## Missing evidence','']+[f'- {x}' for x in result['open_items']]
     lines+=['','## Measured training budgets','',
-            '| Run | Updates | Generated tokens | Training seconds | Validation seconds |',
-            '|---|---:|---:|---:|---:|']
-    for r in runs:lines.append(f"| {r['run']} | {r['completed_updates']} | {r['committed_training_generated_tokens']} | {r['training_wall_seconds']} | {r['validation_wall_seconds']} |")
+            '| Run | Batches | Optimizer updates | Generated tokens | Training seconds | Validation seconds |',
+            '|---|---:|---:|---:|---:|---:|']
+    for r in runs:lines.append(f"| {r['run']} | {r['completed_batches']} | {r['completed_updates']} | {r['committed_training_generated_tokens']} | {r['training_wall_seconds']} | {r['validation_wall_seconds']} |")
     lines+=['','See each run\'s `training_report.json` and `validation_curves.csv` for token/time curves, judge usage, health and tail trends.',
             '', 'No automated check certifies human-like thinking, truthfulness, or publication readiness.']
     (root/'pilot_report.md').write_text('\n'.join(lines)+'\n')

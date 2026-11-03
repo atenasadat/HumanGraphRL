@@ -12,19 +12,20 @@
 
 # One submission, one GPU, many sequential runs. Never cancels other jobs.
 set -euo pipefail
-cd "${TOPGRPO_ROOT:-/home1/${USER}/TopGRPO}"
+cd "${TOPGRPO_ROOT:-/home1/${USER}/HumanGraphRL}"
+export TOPGRPO_ROOT="$PWD"
 export PYTHONPATH="$PWD"
 export HF_HOME="${HF_HOME:-/scratch1/${USER}/hf}"
 export PYTHONUNBUFFERED=1 TOKENIZERS_PARALLELISM=false
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 PROFILE="${PROFILE:-pilot}"
 if [[ "$PROFILE" == pilot ]]; then
-    default_run_root="$PWD/pilots/results/human_topology_pilot_v3"
+    default_run_root="$PWD/pilots/results/human_topology_pilot_v4"
 else
     default_run_root="$PWD/processed_data/full_training_and_benchmark_results/paper_${PROFILE}"
 fi
 export RUN_ROOT="${RUN_ROOT:-$default_run_root}"
-export PAPER_DATA="${PAPER_DATA:-/scratch1/${USER}/topgrpo_paper_data}"
+export PAPER_DATA="${PAPER_DATA:-/scratch1/${USER}/humangraphrl_public_data_v2}"
 export PAPER_VENV="${PAPER_VENV:-$PWD/scripts/experiment/.venv-paper}"
 action="${1:-submit}"
 
@@ -65,6 +66,8 @@ fi
 
 if [[ -z "${SLURM_JOB_ID:-}" ]]; then
     [[ "$action" == submit ]] || { echo "Expected prepare, submit, or status" >&2; exit 2; }
+    # Reject stale code/plans and missing full-run pilot prerequisites before queueing.
+    "$PAPER_VENV/bin/python" -m scripts.experiment.thinkaloud_rl.paper.suite gate --root "$RUN_ROOT"
     # Each resubmission resumes the same root. No job arrays or automatic queue flooding.
     exec sbatch --export=ALL "$PWD/scripts/experiment/thinkaloud_rl/carc_paper_suite.sh" worker
 fi
@@ -75,10 +78,15 @@ import torch
 import bitsandbytes as bnb
 if not torch.cuda.is_available(): raise RuntimeError('CUDA is unavailable')
 print('GPU:', torch.cuda.get_device_name(), 'torch:', torch.__version__, 'CUDA:', torch.version.cuda)
-layer=bnb.nn.Linear4bit(16,16,bias=False,compute_dtype=torch.float16,quant_type='nf4').to('cuda')
-x=torch.randn(2,16,device='cuda',dtype=torch.float16,requires_grad=True)
+layer=bnb.nn.Linear4bit(64,64,bias=False,compute_dtype=torch.float16,quant_type='nf4').to('cuda')
+x=torch.randn(2,64,device='cuda',dtype=torch.float16,requires_grad=True)
 layer(x).float().square().mean().backward()
+if not torch.isfinite(x.grad).all(): raise RuntimeError('Nonfinite NF4 preflight gradient')
 print('NF4 GPU forward/backward preflight passed')
+q=torch.randn(1,2,16,64,device='cuda',dtype=torch.float16,requires_grad=True)
+torch.nn.functional.scaled_dot_product_attention(q,q,q,is_causal=True).float().square().mean().backward()
+if not torch.isfinite(q.grad).all(): raise RuntimeError('Nonfinite SDPA preflight gradient')
+print('SDPA GPU forward/backward preflight passed')
 PY
 
 worker_pid=""

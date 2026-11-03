@@ -11,6 +11,16 @@ import tempfile
 ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'scripts/experiment').is_dir() and (p / 'processed_data').is_dir())
 
 
+def validate_training_schedule(config):
+    steps=config['steps'];budget=config.get('token_budget',0)
+    if type(steps) is not int or steps<=0:raise ValueError('steps must be a positive integer batch count')
+    if type(budget) is not int or budget<0:raise ValueError('token_budget must be a nonnegative integer; 0 disables it')
+    rule=config.get('training_stop_rule')
+    if rule not in (None,'fixed_batches'):raise ValueError('Unknown training_stop_rule')
+    if rule=='fixed_batches' and budget!=0:
+        raise ValueError('fixed_batches requires token_budget=0; measure tokens without stopping on them')
+
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
@@ -40,8 +50,13 @@ def atomic_json(path, value):
 
 
 def read_jsonl(path):
+    return list(iter_jsonl(path))
+
+
+def iter_jsonl(path):
     with Path(path).open() as f:
-        return [json.loads(line) for line in f if line.strip()]
+        for line in f:
+            if line.strip():yield json.loads(line)
 
 
 def write_jsonl(path, rows):
@@ -61,6 +76,10 @@ def write_jsonl(path, rows):
 
 
 def final_answer(text):
+    if text.lstrip().startswith('<think>'):
+        # Preserve literal tags inside the final artifact (e.g. Python strings).
+        _,separator,answer=text.partition('</think>')
+        return answer.strip() if separator else ''
     # Some reasoning-model templates already emit the opening tag in the prompt.
     if '<think>' not in text and '</think>' in text:
         return text.rsplit('</think>', 1)[1].strip()

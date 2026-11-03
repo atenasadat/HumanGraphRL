@@ -1,0 +1,211 @@
+{
+  "date": "2026-11-03",
+  "author": "Codex",
+  "git_head": "1592fa930150200d0b17d58a9d69000485ebd07f",
+  "status": "blocked_for_full_experiment",
+  "pushed": false,
+  "local_environment": "18 GiB Apple Silicon; PyTorch 2.14.1, Transformers 5.20.2; MPS bfloat16, no CUDA/NF4 test",
+  "real_public_data_checks": {
+    "passed": 464,
+    "total": 464,
+    "raw_hash_validated_sessions": {
+      "programming": 14,
+      "writing": 13
+    },
+    "included_processed_segments": {
+      "programming": 571,
+      "writing": 3935
+    }
+  },
+  "programming_training": {
+    "complete": true,
+    "optimizer_updates": 2,
+    "changed_B_matrices": 112,
+    "tokens": 2416,
+    "seconds": 98.70679187499991,
+    "task_ids": [
+      "mbpp_785",
+      "mbpp_934",
+      "mbpp_858",
+      "mbpp_863",
+      "mbpp_606",
+      "mbpp_944",
+      "mbpp_710",
+      "mbpp_819"
+    ]
+  },
+  "programming_health": {
+    "mean_reasoning_truncation_fraction": 0.625,
+    "mean_answer_truncation_fraction": 0.0,
+    "finite_logged_metrics": true,
+    "valid_structure_fraction": 1.0,
+    "mean_truncation_fraction": 0.625,
+    "mean_output_risk_fraction": 0.625,
+    "zero_task_gradient_steps": 0
+  },
+  "calibration": {
+    "coverage": {
+      "programming": {
+        "samples": 8,
+        "valid_samples": 8,
+        "valid_prompts": 4,
+        "truncated_samples": 5,
+        "rejections": {}
+      },
+      "writing": {
+        "samples": 8,
+        "valid_samples": 8,
+        "valid_prompts": 4,
+        "truncated_samples": 8,
+        "rejections": {}
+      }
+    },
+    "passed": true,
+    "minimum_valid_prompts_per_domain": 2,
+    "signature": "5b1d5ac7ab74c1a398a1ebcae2a549a236e19788f9706906b64b184cc339f593"
+  },
+  "judge_checks": [
+    {
+      "name": "grounded",
+      "passed": true
+    },
+    {
+      "name": "fabricated_result",
+      "passed": true
+    },
+    {
+      "name": "nonsense",
+      "passed": true
+    },
+    {
+      "name": "judge_injection",
+      "passed": true
+    },
+    {
+      "name": "hypothetical_proposal",
+      "passed": false
+    },
+    {
+      "name": "explicit_fiction",
+      "passed": false
+    }
+  ],
+  "writing_training": "Not completed; no nonzero writing optimizer update verified",
+  "mixed_training": "Not completed",
+  "software_regression_groups": 9,
+  "software_tests": "Controlled fixtures are not experimental training data or performance evidence.",
+  "checkpoint_checks": {
+    "validation_failure_checkpoint_step": 1,
+    "exact_weights_after_resume": true,
+    "completed_run_reused": true,
+    "final_step": 2,
+    "tokens": 24,
+    "last_step_stop_requires_final_validation": true
+  },
+  "probabilities": {
+    "max_log_probability_difference": 1.9073486328125e-05,
+    "nonzero_gradient_parameters": 96,
+    "two_stage_tokens": 16,
+    "interrupted_generation_rejected": true,
+    "model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "limitation": "Numerical implementation check, not research performance."
+  },
+  "static_checks": {
+    "python_modules": 24,
+    "json_configs": 6,
+    "bash_scripts": 3,
+    "embedded_gpu_python_syntax": true,
+    "git_whitespace": true,
+    "plans": {
+      "pilot": {
+        "stages": 38,
+        "training_runs": 21
+      },
+      "full": {
+        "stages": 98,
+        "training_runs": 63
+      }
+    },
+    "cuda_execution_tested": false
+  },
+  "source_hashes": {
+    "scripts/experiment/thinkaloud_rl/multidomain_tasks.py": "26dc271e3b6bcd97ee04789bdabc0064b1ebbe7b04a843dadd37967836aea41c",
+    "scripts/experiment/thinkaloud_rl/paper/__init__.py": "a42c8da5a0298acec7e1a8b1bd15f7b722d85c6240db2e408ce64cd2ed8779d7",
+    "scripts/experiment/thinkaloud_rl/paper/algorithms.py": "c35b38d3d81f2c756b1203deca2f947efd61d6816e46e46e49d749ff0ea68691",
+    "scripts/experiment/thinkaloud_rl/paper/audit.py": "3dfa5c2f844e8be72f6dffd06405911eecaac297267fe17ad669fff6a1d4bc01",
+    "scripts/experiment/thinkaloud_rl/paper/code_worker.py": "9407ef9670326e7c12ace577981d539d1af2846e0e59fbde139ebbd830da3165",
+    "scripts/experiment/thinkaloud_rl/paper/common.py": "c95dd8d9dc700906dcca06d9d3f30d7674de74e5562874ec17721abf02116870",
+    "scripts/experiment/thinkaloud_rl/paper/constrained.py": "c2c7831a2c718979c8ae65c706f4384846d647db1c36d0555206eaaefd0fce2b",
+    "scripts/experiment/thinkaloud_rl/paper/data.py": "0afdae918daf9f308b5cb7e35a9dd3e430e04c5f093e75e50add2b65a6d10826",
+    "scripts/experiment/thinkaloud_rl/paper/diagnostics.py": "ebf49effcc58887cde50ab45b9668af986c62c2cd70277a2a92132c03111b27b",
+    "scripts/experiment/thinkaloud_rl/paper/evaluate.py": "03c78f1d1e94a79b6b2503cefc7c3a74c7d7bc4ac82c756731ff9f9b100c9590",
+    "scripts/experiment/thinkaloud_rl/paper/human_sources.py": "76b99f11809975949c72884b7d415da6bc47e5fc5553b9e4e8971aa868a82ace",
+    "scripts/experiment/thinkaloud_rl/paper/judge.py": "ea3301b861165f42ea7b3d08a0ca9372f07ffa057fe50c2a5335a4e246109c54",
+    "scripts/experiment/thinkaloud_rl/paper/model.py": "c65b3991143deaca4ceac42ba5a3ffe5522b2fabdb28cff5c1176ff86db33bd0",
+    "scripts/experiment/thinkaloud_rl/paper/output_quality.py": "6cc78929e9db55683a7ae4764c7a32e005272a2c6152c947c0610b668fb79877",
+    "scripts/experiment/thinkaloud_rl/paper/preflight.py": "0e38a045d288bd0c6996c6839185a93c2c49ba9fdd85a059dbfe029c5786118c",
+    "scripts/experiment/thinkaloud_rl/paper/priors.py": "5267de7aeec90d36d7d9a9ebda95fd80ce0cecb912a2c82512b3f128f794004d",
+    "scripts/experiment/thinkaloud_rl/paper/report.py": "8c43ca9b3f5f57d1aa3e82ca7f394f53322da7a4c33d7dbf7cbb0657ba9215c5",
+    "scripts/experiment/thinkaloud_rl/paper/reviews.py": "bc4b61a5ca3218fe31194c62e054d6f9f5d46337a3f72fd974f2c85a27370b7f",
+    "scripts/experiment/thinkaloud_rl/paper/runtime.py": "ca75f772570aca6ae6e0b36b3d259484ed71eeab99ef1a0aa8eb0fe2262989d7",
+    "scripts/experiment/thinkaloud_rl/paper/scoring.py": "7d2e3d355b913f00314f9abbc2d901657a480b78d7812c5ad08959320b7dd05a",
+    "scripts/experiment/thinkaloud_rl/paper/structure.py": "9624992197964e1e40c5edf2df6484149a18648bf16c93b16b765eb6cee669ec",
+    "scripts/experiment/thinkaloud_rl/paper/suite.py": "d9dad07890c9a5f37ddc38eb500acecb4210a8b8b433bc13fc08e62cf1ceb635",
+    "scripts/experiment/thinkaloud_rl/paper/telemetry.py": "ec34d130281f4b666a0cd8850ae82007b4781937773b8c893ff9370e7c4477a1",
+    "scripts/experiment/thinkaloud_rl/paper/train.py": "2965a48b626a863e03e23436661f2af76ad667e60810373bb8a909fe5ae580fc",
+    "scripts/experiment/thinkaloud_rl/paper/worker.py": "c7cae58084b679433c241f071816ce001fb094149c52249414b2fbf404bb7541",
+    "scripts/experiment/thinkaloud_rl/prepare_multidomain.py": "a0a8c249b4d079f7909564104925835f9c20a800dd8e5f91db9484323fc43e1d",
+    "scripts/experiment/thinkaloud_rl/reasoning_shaper.py": "cdce0d58c59bd8cd6d86d74c2adf8f5e52f6e1595ff4d1c5931f8fe75374430c"
+  },
+  "config_hashes": {
+    "human_topology_pilot_v4.json": "ee2269aa911ae5a08e2ea4ca3564d72cda74ad8e324941a3cdd4aecaab0d127a",
+    "human_topology_full_v4.json": "05110581faa05a16bd5aaf4f833b1504c8324a2159e4c0c4f56b3432f8d83454"
+  },
+  "evidence_directory": "pilots/results/local_validation_2026-11-03",
+  "test_programs_outside_git": "/private/tmp/hgrl_final_audit",
+  "artifact_hashes": {
+    "README.md": "0c2facdd42afbe440e864ea017c39c8d9457ccb7749cbd8c3ce46405fa14c07c",
+    "calibration_final.log": "5f184a9004f8470821a3b8aae34c83fe1b6956d313ffe4d01f0241f7418afdf8",
+    "checkpoint_checks.json": "3aee962aa7b2b9a2d7a16055dc5736d297d0c9658a48dff1dc5e45071119dec3",
+    "checkpoint_checks.log": "3587f73f535179762d2ee78c178e7283b1bbde24abd56a1b120f8f4bdf78c0ee",
+    "evaluation_final.log": "40d531cf5da3807832631415696001261c69ee92ebd0a312e64b133d461b1c03",
+    "evaluation_finish.log": "2dc910360dbd90af3b2b47af88c29b5271f0516a020c85dc219ece88e0cd0c84",
+    "evaluation_live.json": "9bf8220e3e696b6e4ae05644cf5855a6f74d6ac5e9e6fcc22fbedd08800c650d",
+    "judge_live_sdpa.json": "b9ebba507f0ffed15868a44a5a2f208c16baf8ddbecfca4f6d5de2fd2e82f478",
+    "judge_live_v4.json": "7ef1b3f31974f42c7acc1623d7c288c1045a5807e2d11e732a764ec63c7cbdf4",
+    "judge_v4.log": "d64a84597569d7a8b591740daa9461c84c38fb1777705daaf57c9a55eb849664",
+    "launcher_checks.json": "39b8c51f40acbb8bc99ea62e43b320d23b2fc147b88fa5ac7362191af7692e95",
+    "llm_reference.coverage.json": "4f83f5efed132324cbc3ba73649ff418e3ad6bc6e0881990eb4acc59e794e082",
+    "mistral_grammar.json": "640e798b2241f86f6dff780aca40e701f8be35e4f43cc970ca23cb944f0997e5",
+    "mistral_grammar.log": "c7259c841ab37c3333ae1cdd24c57bb0ea720c0f7204e7f5b5de66d735c0e872",
+    "probabilities_sdpa.json": "1137d7577beb10258c2f0fa96a340df0e6bf7f3fb37634cdde330db530b1edbb",
+    "programming_complete.json": "c540501d91401860f529eade961815d38cf52af6735c9ffca1f1bf657e756b25",
+    "programming_config.json": "9900e024155f0f7711c656931910eddbc8457c7e824c1acdfc654f8f44ce4002",
+    "programming_live_sdpa.json": "21eb5dbe3446b15ab1e76af543fcc26331925a2fd89bfc44ea110fe031a110b9",
+    "programming_sdpa.log": "e04dc5e9afcce918ce18704d804134132a0f28f1d67d22f4042727c6e4c3598c",
+    "programming_steps/000001.json": "1c45d8528588b7d8de5673a711c0f802d6d1d5070825457e8783c31952d72722",
+    "programming_steps/000002.json": "2ee766a078814507db9cb9c8acb17047e234de13c60bf9998e28b2e5457ffd9a",
+    "programming_training_report.json": "be0cbc3815b7e702ebb6797c8f8ce780afc78d9a52b39e2543a481f5b0763307",
+    "programming_validation/step_000000/samples/143e8b90abdb634e8c6fce4aa575495aedb8f1268dbc6a78aa188f34260b508d.json": "9f36f3c837045107332c029c4fe53b7b51fb6b824c76d36e82618e2a9e71650c",
+    "programming_validation/step_000000/samples/4374d7fa5ef393bd4cf922fd257c81903dc308e4cad2ebc6b3e598b9fcf63f2d.json": "a8392b8f2959e90a7d72864e8982dfb8434c15ef370f75bfc85f81adc2026961",
+    "programming_validation/step_000000/signature.json": "dd893fbc21e0ac3f74cae61ae0fe6d066258c352aaac515040977e3015f59ebd",
+    "programming_validation/step_000000/summary.json": "379f4240974e35a04b56e002507df398ab5097b4a933469b19e9404fa15a2f07",
+    "programming_validation/step_000002/samples/143e8b90abdb634e8c6fce4aa575495aedb8f1268dbc6a78aa188f34260b508d.json": "19b2a67c614c5c0089faa872fb1ea629416ef59f8650abe6bd663d4e84b28d52",
+    "programming_validation/step_000002/samples/4374d7fa5ef393bd4cf922fd257c81903dc308e4cad2ebc6b3e598b9fcf63f2d.json": "1661f4668f64f22a52e3a771c856634b582c54d03b7d98a32060a196251f9891",
+    "programming_validation/step_000002/signature.json": "b667bf097304b1aad68d6808e8b32494927cca049276b7952b49983df3507209",
+    "programming_validation/step_000002/summary.json": "5e3877855851b2461624336dffbf30a0bc3e94f5a11018b6c7e9fc60f7586846",
+    "programming_validation_curves.csv": "b09233f17093b5daa6937903296088dc0f459a100d7456f38e2cb579beb86bcf",
+    "programming_validation_curves.pdf": "cf06cc0d6fa7b09e039aa2512265ba839926f15283ed44064868e094524137c5",
+    "public_verifiers.json": "4a88b39ed63f94842130061d84818c874c391c76e1e03c25c7d214de62f78a6d",
+    "regression.log": "4685183ebd8afed0321b369a8aa23f54e11a09ce0405692fa72981a041790de7",
+    "static_checks.json": "2f89f2c459bcddab3a22287cc32bdc0df1e9d8bc90eef2371e422626b11ba131",
+    "submission_gate.json": "6d32bac4f04f08a3a8579f6ef5b6feefa75a8a57c7c4e77ed3b4eb04398400d7",
+    "submission_gate.log": "caa894a6caaebf299a888d827f2f87048d8cd895dd091750b5c88a931875c397",
+    "writing_memory_interruption.json": "b8dea43a710b183748040aaeb6b31dce83f594d0abd800e0a4150e0e7cb46486",
+    "writing_process_sample.txt": "09db78e17f28b1f225a148cb685991a6d5787b1079dbe94f65cfc91246a69766",
+    "writing_sdpa_memory_interruption.json": "423eb18113acecab3ee5958881961a74b6834a9472859d94d1bd881a662fbdb8",
+    "writing_short_memory_interruption.json": "1d91de11d99ea18493926bdb6646ffe29212e518fa0fe0110182301f45ec77df",
+    "writing_small_policy_resource_limit.json": "b0b427e187ba7b4474d92ddc7b00fa94444bcdd03385a6d6d2908402dd92f137",
+    "writing_small_policy_sdpa.log": "009d3db18064b5ea89e6fc8f3853e2edcad03b747ad70ddeef9cbdc898a5d7ec"
+  }
+}

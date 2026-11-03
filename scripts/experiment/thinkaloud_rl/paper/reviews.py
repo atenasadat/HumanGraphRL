@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import random
 
-from .common import atomic_json,digest,read_jsonl,write_jsonl
+from .common import atomic_json,digest,read_jsonl,iter_jsonl,write_jsonl
 
 
 def packet(root,kind,items):
@@ -34,8 +34,8 @@ def packet(root,kind,items):
 def output_packet(root):
     root=Path(root);plan=json.loads((root/'plan.json').read_text());items=[]
     limit=plan['config'].get('review_samples_per_run',8)
-    tasks={t['id']:t for t in read_jsonl(Path(plan['data_root'])/'tasks.jsonl')}
-    for run in sorted((root/'runs').iterdir()):
+    tasks={t['id']:t for t in iter_jsonl(Path(plan['data_root'])/'tasks.jsonl') if t['domain']=='writing'}
+    for run in sorted((root/'runs').glob('*')):
         samples=sorted((run/'test/samples').glob('*.json'),key=lambda p:digest(p.name))
         writing=[json.loads(p.read_text()) for p in samples if json.loads(p.read_text())['domain']=='writing'][:limit]
         for s in writing:
@@ -63,7 +63,7 @@ def graph_packet(root,include_model=False):
                           'text_steps':r['text_steps'],'graph':r['graph']})
     if include_model:
         from .structure import steps
-        for run in sorted((root/'runs').iterdir()):
+        for run in sorted((root/'runs').glob('*')):
             valid=[]
             for p in sorted((run/'test/samples').glob('*.json'),key=lambda p:digest(p.name)):
                 r=json.loads(p.read_text());g=r.get('structure',{})

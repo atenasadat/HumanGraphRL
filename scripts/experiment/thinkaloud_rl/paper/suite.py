@@ -10,7 +10,7 @@ import subprocess
 import sys
 import time
 
-from .common import ROOT, atomic_json, digest, file_hash, read_jsonl, source_fingerprint, write_jsonl
+from .common import ROOT, atomic_json, digest, file_hash, read_jsonl, iter_jsonl, source_fingerprint, write_jsonl
 from .data import select,verify
 from .priors import build
 
@@ -48,6 +48,11 @@ def defaults(profile):
                    audit_trained_methods=['grpo','human'],mixed_sampling='balanced',
                    validation_samples=2,validation_tail_points=4,
                    plateau_tolerance=.01,review_samples_per_run=8)
+        # 1024 reasoning + 1024 answer tokens: measured writing reasoning reaches
+        # ~1.5k tokens and answers exceeded 768 (docs/reports/2026-11-03_judge_and_budget_fixes.md).
+        cfg.update(generation_protocol='two_stage_v1',reasoning_fraction=.5,max_new_tokens=2048,
+                   sampling_temperature=.7,learning_preflight_steps=2,attention_implementation='sdpa',
+                   training_stop_rule='fixed_batches',primary_methods=['grpo','human_domain_topology'])
         cfg.update(review_min_score=3,review_max_disagreement=1,review_max_risk_fraction=.1)
         cfg.update(judge_min_risk_recall=.8,judge_max_score_mae=.25,max_truncation_fraction=.25,
                    min_valid_graph_fraction=.7,max_cue_score_shift=.1,max_threshold_score_range=.2,
@@ -56,15 +61,15 @@ def defaults(profile):
     if profile=='main':
         cfg.update(models=['Qwen/Qwen2.5-7B-Instruct','mistralai/Mistral-7B-Instruct-v0.3'],
             seeds=[17,29,43],methods=['grpo','grpo_sequence','dr_grpo','dapo_one_update','rloo','shrinkage','t2t','dra','human','shuffled','synthetic'],
-            train_domains=['programming','writing','mixed'],steps=500,prompts_per_batch=4,
+            train_domains=['programming','writing','mixed'],steps=250,prompts_per_batch=4,
             max_new_tokens=2048,eval_max_new_tokens=4096,eval_samples=4,eval_limit_per_domain=0,
             validation_limit_per_domain=24,eval_every=50,checkpoint_every=5,audit_groups=32,audit_tasks=4,
-            token_budget=1000000,audit_trained_methods=['grpo','human'])
+            token_budget=0,audit_trained_methods=['grpo','human'])
     elif profile=='ablations':
         cfg.update(models=['Qwen/Qwen2.5-7B-Instruct'],seeds=[17,29,43],
             methods=['grpo','human','shuffled','uniform','frequency','transition','phase_free','synthetic','entropy','learned_prefix'],
             steps=250,prompts_per_batch=4,eval_samples=4,eval_limit_per_domain=100,
-            token_budget=500000,eval_every=25,audit_groups=16)
+            token_budget=0,eval_every=25,audit_groups=16)
     elif profile=='existing':
         cfg.update(models=['Qwen/Qwen2.5-7B-Instruct'],seeds=[17,29,43],methods=[],train_domains=[],
                    run_gradient_audit=False,eval_samples=4,eval_limit_per_domain=50,eval_max_new_tokens=2048)
@@ -85,8 +90,17 @@ def create_plan(root,config,data_root):
     if any(m not in METHODS for m in config['methods']):raise ValueError('Unknown method')
     if not config['seeds'] or not config['models']:raise ValueError('Empty seed/model list')
     if config['prompts_per_batch']<2 or config['group_size']<2:raise ValueError('Use at least two prompts and samples per group')
+    from .common import validate_training_schedule
+    validate_training_schedule(config)
+    primary=config.get('primary_methods',[])
+    if any(m not in METHODS for m in primary):raise ValueError('Unknown primary method')
     if config.get('robust_pilot'):
         import math
+        if config.get('generation_protocol','tagged_single_pass')=='two_stage_v1':
+            if not 0<config.get('reasoning_fraction',.25)<1:raise ValueError('Invalid reasoning budget fraction')
+        if not math.isfinite(config.get('sampling_temperature',1.)) or config.get('sampling_temperature',1.)<=0:
+            raise ValueError('Invalid sampling temperature')
+        if config.get('learning_preflight_steps',0)<0:raise ValueError('Negative learning preflight budget')
         if config.get('judge_retry_max_new_tokens',config['judge_max_new_tokens']*2)<config['judge_max_new_tokens']:
             raise ValueError('Judge retry token budget must not shrink')
         if any(not math.isfinite(config[k]) or config[k]<0 for k in ('structure_reward_weight','outcome_reward_weight')):
@@ -111,6 +125,11 @@ def create_plan(root,config,data_root):
         tag=model.replace('/','_')
         if config.get('robust_pilot'):
             jobs.append({'id':tag+'_structure_calibration','action':'structure_calibration','model':model,'seed':2026})
+            if config.get('learning_preflight_steps',0):
+                for domain in config['train_domains']:
+                    jobs.append({'id':tag+'_learning_preflight_'+domain,'action':'learning_preflight',
+                                 'model':model,'seed':config['seeds'][0],'train_domain':domain,
+                                 'method':'human_domain_topology'})
         if 'synthetic' in config['methods']:
             jobs.append({'id':f'{tag}_synthetic','action':'synthetic','model':model,'seed':2026})
         if config['run_gradient_audit']:
@@ -132,6 +151,16 @@ def create_plan(root,config,data_root):
                         for audited in (['programming','writing'] if domain=='mixed' else [domain]):
                             jobs.append({'id':parent+'_audit_'+audited,'action':'audit','model':model,
                                          'seed':2026,'checkpoint_run':parent,'audit_domain':audited})
+    if primary:
+        # Stable ordering keeps prerequisites first and each trained audit after
+        # its parent. Finish the primary comparison across all seeds/domains
+        # before starting additional methods; never filter by observed scores.
+        training_jobs={j['id']:j for j in jobs if j['action']=='train_eval'}
+        def priority(job):
+            parent=training_jobs.get(job.get('checkpoint_run'),job)
+            if parent['action']=='train_eval':return 1 if parent['method'] in primary else 2
+            return 0
+        jobs.sort(key=priority)
     for external in config.get('external_baselines',[]):
         if not isinstance(external.get('argv'),list) or not external['argv']:
             raise ValueError('External baselines require a concrete argv list, no shell interpolation')
@@ -151,8 +180,13 @@ def create_plan(root,config,data_root):
     if config.get('robust_pilot'):
         training=sum(j['action']=='train_eval' for j in jobs)
         plan['declared_budget']={'training_runs':training,'responses_per_run_cap':config['steps']*config['prompts_per_batch']*config['group_size'],
+            'training_stop_rule':config.get('training_stop_rule','steps_or_tokens' if config.get('token_budget') else 'fixed_batches'),
+            'requested_batches_per_run':config['steps'],'cumulative_token_cap':config.get('token_budget',0),
+            'primary_training_runs':sum(j['action']=='train_eval' and j['method'] in primary for j in jobs),
+            'learning_preflight_runs':sum(j['action']=='learning_preflight' for j in jobs),
+            'learning_preflight_response_cap':sum(j['action']=='learning_preflight' for j in jobs)*config.get('learning_preflight_steps',0)*config['prompts_per_batch']*config['group_size'],
             'policy_generated_tokens_per_run_upper_bound':config['steps']*config['prompts_per_batch']*config['group_size']*config['max_new_tokens'],
-            'scope':'Excludes evaluation, gradient audits, judge tokens, prompt tokens, rejected and resumed work; actual usage is reported.',
+            'scope':'Per-run training caps exclude the separately listed learning preflights, evaluation, gradient audits, judge tokens, prompt tokens, rejected and resumed work; actual usage is reported.',
             'primary_comparison':'human_domain_topology vs grpo; pooled and shuffled comparisons are secondary',
             'primary_structure_endpoint':'held-out-human graph similarity with common evaluation reference across methods',
             'outcome_guardrails':['executable correctness','independent writing judge and blinded human risk review']}
@@ -203,28 +237,48 @@ def prepare_plan(plan):
         from .reviews import graph_packet
         graph_packet(root)
         from .data import select_evaluation
-        prepared['evaluation_task_ids']=[r['id'] for r in select_evaluation(read_jsonl(data/'tasks.jsonl'),plan['config'])]
+        prepared['evaluation_task_ids']=[r['id'] for r in select_evaluation(iter_jsonl(data/'tasks.jsonl'),plan['config'])]
     atomic_json(root/'prepared.json',prepared)
     return prepared
 
 
-def run(plan,max_seconds=0):
+def require_pilot(plan):
+    # Checked on the login node before sbatch and again by the worker.
+    if not plan['config'].get('required_pilot_root'):return
+    prerequisite=Path(plan['config']['required_pilot_root'])
+    if not prerequisite.is_absolute():prerequisite=ROOT/prerequisite
+    path=prerequisite/'pilot_readiness.json'
+    checks=json.loads(path.read_text()).get('checks',{}) if path.exists() else {}
+    if not checks or not all(checks.values()):
+        missing=[k for k,v in checks.items() if not v]
+        raise ValueError('Full training requires completed pilot checks and independent human reviews: '+str(path)+
+                         (' (open: '+', '.join(missing)+')' if missing else ' (missing)'))
+
+
+def check_prepared_plan(plan):
+    """Cheap checks shared by login-node submission and the allocated worker."""
+    require_pilot(plan)
     root=Path(plan['root']);prepared=json.loads((root/'prepared.json').read_text())
-    if plan['config'].get('required_pilot_root'):
-        prerequisite=Path(plan['config']['required_pilot_root'])
-        if not prerequisite.is_absolute():prerequisite=ROOT/prerequisite
-        path=prerequisite/'pilot_readiness.json'
-        if not path.exists() or not all(json.loads(path.read_text()).get('checks',{}).values()) or not json.loads(path.read_text()).get('checks'):
-            raise ValueError('Full training requires completed pilot checks and independent human reviews: '+str(path))
     if prepared['plan_hash']!=digest(plan):raise ValueError('Plan changed after preparation')
     if source_fingerprint()!=plan['source_hashes']:raise ValueError('Source code changed; use a new suite directory')
+    return prepared
+
+
+def run(plan,max_seconds=0):
+    root=Path(plan['root']);prepared=check_prepared_plan(plan)
     verify(plan['data_root'])
     if file_hash(Path(plan['data_root'])/'manifest.json')!=prepared['data_manifest_hash']:raise ValueError('Data manifest changed')
     if file_hash(root/'priors/manifest.json')!=prepared['prior_manifest_hash']:raise ValueError('Human prior manifest changed')
     if plan['config'].get('robust_pilot') and file_hash(root/'structure/references.json')!=prepared['structure_reference_hash']:
         raise ValueError('Human graph references changed')
-    lock=(root/'worker.lock').open('w')
-    fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    with (root/'worker.lock').open('w') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        return _run_jobs(plan,max_seconds)
+
+
+def _run_jobs(plan,max_seconds):
+    """Run while the caller holds the suite lock; release it on every exit path."""
+    root=Path(plan['root'])
     child=None;stopping=False
     def stop(*_):
         nonlocal stopping
@@ -277,7 +331,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);s=p.add_subparsers(dest='command',required=True)
     init=s.add_parser('init');init.add_argument('--root',type=Path,required=True);init.add_argument('--data-root',type=Path,required=True)
     init.add_argument('--profile',choices=['pilot','main','ablations','existing'],default='pilot');init.add_argument('--config',type=Path)
-    for name in ('prepare','run','status'):
+    for name in ('prepare','run','status','gate'):
         sub=s.add_parser(name);sub.add_argument('--root',type=Path,required=True)
         if name=='run':sub.add_argument('--max-seconds',type=int,default=0)
     args=p.parse_args()
@@ -288,6 +342,7 @@ def main():
     plan=json.loads((args.root/'plan.json').read_text())
     if args.command=='prepare':prepare_plan(plan)
     elif args.command=='run':raise SystemExit(run(plan,args.max_seconds))
+    elif args.command=='gate':check_prepared_plan(plan);print('Prepared plan, source code and pilot prerequisite verified')
     else:
         from collections import Counter
         states=Counter(json.loads(p.read_text())['state'] for p in (args.root/'status').glob('*.json'))

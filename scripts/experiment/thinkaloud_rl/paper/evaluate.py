@@ -29,6 +29,9 @@ def summarize(records,expected_samples):
             cognitive_metrics=cognitive_metrics([r['text'] for r in rows]))
         proxy=[r['reward'] for r in rows if r['status']=='heuristic_writing_proxy']
         metrics['mean_writing_proxy']=sum(proxy)/len(proxy) if proxy else None
+        for key in ('reasoning_truncated','answer_truncated'):
+            values=[r[key] for r in rows if r.get(key) is not None]
+            metrics[key+'_fraction']=sum(values)/len(values) if values else None
         for key,extract in {
             'mean_output_quality':lambda r:r.get('output_assessment',{}).get('quality_score'),
             'output_risk_fraction':lambda r:r.get('output_assessment',{}).get('risk_detected'),
@@ -56,6 +59,10 @@ def summarize(records,expected_samples):
 
 
 def evaluate(model,tok,tasks,config,out,lcb_root=None,samples=None,train_state=None,runtime=None):
+    if lcb_root is not None:
+        # The robust reward runtime reads its evaluator path from config.
+        # Honor this public argument there as well as in legacy score().
+        config={**config,'lcb_root':str(Path(lcb_root).resolve())}
     out=Path(out);out.mkdir(parents=True,exist_ok=True)
     n=samples or config.get('eval_samples',4)
     signature=digest({'config':config,'task_ids':[t['id'] for t in tasks],'samples':n,'train_state':train_state})
@@ -83,11 +90,15 @@ def evaluate(model,tok,tasks,config,out,lcb_root=None,samples=None,train_state=N
                 row={'task_id':task['id'],'sample':j,'domain':task['domain'],'source':task['source'],
                     'prompt':task['prompt'],'text':r['text'],'final_answer':final_answer(r['text']),
                     'token_ids':r['ids'],'tokens':len(r['ids']),'prompt_tokens':r['prefix'],'truncated':r['truncated'],
+                    'generation_protocol':r.get('generation_protocol','tagged_single_pass'),
+                    'reasoning_tokens':r.get('reasoning_tokens'),
+                    'reasoning_truncated':r.get('reasoning_truncated'),
+                    'answer_truncated':r.get('answer_truncated'),
                     'seconds':time.monotonic()-start,**scored}
                 atomic_json(path,row)
             records.append(row)
     summary={'signature':signature,'config':config,'training_state':train_state,
-        'decoding':'greedy' if n==1 else 'temperature=1, top_p=1, top_k=0',
+        'decoding':'greedy' if n==1 else f"temperature={config.get('sampling_temperature',1.)}, top_p=1, top_k=0",
         'domains':summarize(records,n)}
     summary['evaluation_usage']={'wall_seconds':time.monotonic()-started,
         'generated_tokens':sum(r['tokens'] for r in records),'prompt_tokens':sum(r.get('prompt_tokens',0) for r in records),

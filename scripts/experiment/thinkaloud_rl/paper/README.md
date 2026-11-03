@@ -1,21 +1,65 @@
 # CARC paper experiments
 
-Current pilot/full launchers use the v3 direct-topology protocol in
-`docs/reports/2026-11-02_human_topology_pilot_v3_codex.md`. This adds evidence-aware
+The v4 files are a local candidate. Live proposal/fiction judge checks still fail;
+full training remains gated. The repair report below records the evidence.
+
+Current pilot/full launchers use the v4 public-data and two-stage generation protocol.
+See `docs/reports/2026-11-03_pipeline_repairs_codex.md` for measured checks and
+remaining limitations. The direct-topology method is described in
+`docs/reports/2026-11-02_human_topology_pilot_v3_codex.md`. It adds evidence-aware
 output rewards, semantic graph rewards, one pilot seed, diagnostic/final partitions,
 mandatory judge preflight and human-review gates. The older estimator profiles
 below remain available for controlled comparisons and historical reevaluation.
 
-Writing judges now use mandatory JSON-schema token constraints, bounded
-truncation retries, and detailed attempt records. Training checkpoints on a
-persistent judge failure and replays pending validation on resume. See
+The policy first generates reasoning notes, then a final answer conditioned on
+those notes. Both sampled sections participate in the joint policy gradient;
+formatting delimiters are supplied by the pipeline and are not rewarded actions.
+The per-response token limit is split 25%/75%, with temperature 0.7 and no hidden
+repetition penalty or top-k/top-p filtering. Training uses the same probabilities.
+The v4 profiles select PyTorch SDPA attention to reduce attention-memory overhead;
+legacy profiles retain eager attention unless explicitly overridden. Attention
+choice is recorded in the configuration and calibration/judge cache identities.
+Before the 21 main pilot runs, three short learning preflights require real
+optimizer updates, finite metrics, and the declared graph-coverage and truncation
+limits in programming, writing and mixed contexts. There are now 38
+sequential stages. These checks do not establish improvement or publication readiness.
+
+The v4 pilot uses 150 training batches; the v4 full configuration provisionally
+uses 250, to be reconsidered using pilot validation curves before freezing the
+experiment. Both explicitly disable the cumulative training token cap
+(`token_budget: 0`, `training_stop_rule: fixed_batches`). Each batch samples four
+prompts with four responses each: 2,400 responses per completed pilot run and
+4,000 per completed full run, excluding retries and other stages. `steps` counts
+batches, including tied-reward batches; `optimizer_updates` counts actual nonzero
+updates. These quantities need not match. Failed health checks still stop runs.
+The fixed-batch contract rejects a nonzero cumulative cap before loading models.
+
+Primary GRPO/human-domain comparisons run before additional methods across all
+seeds and domains: six primary pilot runs and 18 primary full runs. All seven
+methods remain planned (21/63 total training runs); ordering does not automatically
+pause after primary runs or select controls based on favorable results. There are
+five additional methods. Tokens, training/validation time and generation usage
+remain measurements. Compare validation curves at common measured compute values;
+do not call training wall time active GPU time.
+
+Writing judges now use mandatory JSON-schema token constraints, exact candidate
+quotations, bounded truncation retries, and detailed attempt records. Any dimension
+below 2/4 blocks the output reward, even if the judge omits a risk flag. Training
+checkpoints on a persistent judge failure and saves weights before validation,
+including when validation and checkpoint intervals differ. Pending validation
+replays on resume. Partial preflight failures retain their completed checks. See
 `docs/reports/2026-11-02_constrained_judge_generation_codex.md` for verification,
 limitations, and CARC update commands. A changed source fingerprint requires a
 new suite root; existing model and dataset downloads remain cached.
 Calibration now saves every generated trace and per-domain coverage, including
 rejected traces, and resumes generation per sample. The current pilot launcher
-defaults to `pilots/results/human_topology_pilot_v3_calibration_audit/`; see
-`docs/reports/2026-11-02_calibration_coverage_and_resume_codex.md`.
+defaults to `pilots/results/human_topology_pilot_v4/`. Its public-data directory is
+`/scratch1/$USER/humangraphrl_public_data_v2`. The old prepared corpus contained
+local template writing prompts and is intentionally rejected by the new verifier.
+Writing now uses the original English WritingBench prompts and criteria with a
+documented derived train/validation/test split. WritingBench is model-assisted
+and human-refined; it is not an exclusively human-authored corpus. Cached upstream
+downloads remain reusable; old results and adapters are preserved.
 
 
 This is a new, isolated experiment suite. Use `carc_paper_suite.sh`, rather than
@@ -37,7 +81,7 @@ It does not allocate a GPU or submit jobs. Run preparation on a node where
 downloads are allowed.
 
 ```bash
-cd /home1/$USER/TopGRPO
+cd /home1/$USER/HumanGraphRL
 export PROFILE=existing
 export RUN_ROOT=$PWD/pilots/results/legacy_runs/paper_existing_v1
 bash scripts/experiment/thinkaloud_rl/carc_paper_suite.sh prepare
@@ -53,7 +97,7 @@ Then run the mechanism pilot:
 
 ```bash
 export PROFILE=pilot
-export RUN_ROOT=$PWD/pilots/results/human_topology_pilot_v3
+export RUN_ROOT=$PWD/pilots/results/human_topology_pilot_v4
 bash scripts/experiment/thinkaloud_rl/carc_paper_suite.sh prepare
 bash scripts/experiment/thinkaloud_rl/carc_paper_suite.sh submit
 ```
@@ -85,9 +129,9 @@ are not predictable. Shorter allocations may be easier to schedule.
 | Profile | Purpose | Default workload |
 |---|---|---|
 | `existing` | Corrected reevaluation | Six existing adapters + three seeded base evaluations; 50 tasks/domain, four samples/task |
-| `pilot` | Mechanism check | Qwen2.5-1.5B, one seed, seven methods × programming/writing/mixed, 150 updates; output/structure/human-review audits; up to 50 diagnostic tasks/domain |
-| `ablations` | Isolate human prior | Qwen2.5-7B, three seeds, ten conditions, programming training; 250-update/500k-token caps |
-| `main` | Main matched comparisons/transfer | Qwen2.5-7B and Mistral-7B, three seeds, programming/writing/mixed training; 500-update/1M-token caps |
+| `pilot` | Mechanism check | Qwen2.5-1.5B, one seed, seven methods × programming/writing/mixed, 150 batches; output/structure/human-review audits; up to 50 diagnostic tasks/domain |
+| `ablations` | Isolate human prior | Qwen2.5-7B, three seeds, ten conditions, programming training; 250 batches, cumulative token cap disabled |
+| `main` | Main matched comparisons/transfer | Qwen2.5-7B and Mistral-7B, three seeds, programming/writing/mixed training; 250 batches, cumulative token cap disabled |
 
 `main` is a large matrix: 93 training runs per model (186 total), plus base,
 synthetic-prior, and gradient-audit stages. T2T is excluded from writing/mixed
@@ -117,7 +161,7 @@ the first `prepare`. Example:
   "seeds": [17, 29, 43],
   "train_domains": ["programming", "writing", "mixed"],
   "steps": 250,
-  "token_budget": 500000,
+  "token_budget": 0,
   "max_new_tokens": 2048,
   "eval_max_new_tokens": 4096,
   "eval_samples": 4,
@@ -137,10 +181,12 @@ python -m scripts.experiment.thinkaloud_rl.paper.suite init \
 ```
 
 Plans, prepared tasks, code hashes, model revisions, and run settings are
-immutable. Use a fresh root for changed source/configuration. The token budget
-stops at group boundaries, so the last batch can overshoot it. A step cap can
-also end a run earlier; report the actual tokens and time rather than assuming
-equal budgets were consumed.
+immutable. Use a fresh root for changed source/configuration. Historical configs
+can retain an explicit cumulative token cap; it is checked between batches and
+can overshoot. Current v4 configs prohibit that cap. The per-response
+`max_new_tokens` limit remains active and truncation is audited. Dynamic-resampling
+methods in older profiles can generate different response counts even at equal
+batch counts; always report their actual usage.
 
 ## Methods actually implemented
 

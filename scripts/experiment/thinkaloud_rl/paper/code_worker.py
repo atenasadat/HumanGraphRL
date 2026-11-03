@@ -30,8 +30,9 @@ def main():
         signal.alarm(timeout)
         try:
             scope={}
-            exec(task.get('test_setup',''),scope)
             exec(request['code'],scope)
+            # MBPP fixtures may instantiate classes defined by the submitted code.
+            exec(task.get('test_setup',''),scope)
             for test in task['tests']:
                 exec(test,scope)
             result={'reward':1.,'success':True,'status':'all_assertions_passed','tests':len(task['tests'])}

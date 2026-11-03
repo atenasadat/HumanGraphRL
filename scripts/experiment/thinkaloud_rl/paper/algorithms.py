@@ -70,7 +70,7 @@ def dapo_soft_overlong(reward,length,horizon,buffer):
     return reward+min(0.,(horizon-buffer-length)/buffer)
 
 
-def prefix_arrays(tokenizer, ids, prior, horizon, prompt_opens_think=False):
+def prefix_arrays(tokenizer, ids, prior, horizon, prompt_opens_think=False, reasoning_tokens=None):
     """Before-action potentials and value features; never inspect future tokens.
 
     Incrementally tokenize the last thought fragment, caching classifications of
@@ -79,8 +79,14 @@ def prefix_arrays(tokenizer, ids, prior, horizon, prompt_opens_think=False):
     """
     phis=[]; features=[]; cache={}
     for t in range(len(ids)):
-        prefix=tokenizer.decode(ids[:t],skip_special_tokens=True)
-        if prompt_opens_think:
+        if reasoning_tokens is not None:
+            # Only past reasoning tokens; the deterministic handoff adds no action.
+            draft=tokenizer.decode(ids[:min(t,reasoning_tokens)],skip_special_tokens=True)
+            draft=draft.replace('<think>','&lt;think&gt;').replace('</think>','&lt;/think&gt;')
+            prefix='<think>'+draft+('</think>' if t>=reasoning_tokens else '')
+        else:
+            prefix=tokenizer.decode(ids[:t],skip_special_tokens=True)
+        if reasoning_tokens is None and prompt_opens_think:
             prefix='<think>'+prefix
         match=re.search(r'<think>(.*?)(?:</think>|$)',prefix,re.S)
         units=segment_thought_stream(match[1]) if match else []

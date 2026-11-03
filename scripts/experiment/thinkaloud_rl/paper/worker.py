@@ -7,8 +7,8 @@ import signal
 import subprocess
 import sys
 
-from .common import atomic_json,digest,read_jsonl,stable_seed,write_jsonl
-from .data import select,select_evaluation
+from .common import atomic_json,digest,read_jsonl,iter_jsonl,stable_seed,write_jsonl
+from .data import select,select_evaluation,task_rows
 
 
 def prior_for(plan,job,variant):
@@ -44,12 +44,14 @@ def execute(plan,job):
         attach(config,plan,prepared)
     if 'dra' in config['methods']:
         config['embedding_revision']=prepared['models'][config['embedding_model']]
-    rows=read_jsonl(data_root/'tasks.jsonl')
+    # Read only relevant splits; multi-gigabyte test payloads stay off the heap
+    # during preflight, calibration, audits and training.
+    def rows(split=None):return task_rows(data_root,split)
     lcb_root=data_root/'upstream/LiveCodeBench'
     out=root/'runs'/job['id']
     if job['action']=='structure_calibration':
         from .structure import calibrate_llm
-        tasks=select(rows,'train',['programming','writing'],config['validation_limit_per_domain'])
+        tasks=select(rows('train'),'train',['programming','writing'],config['validation_limit_per_domain'])
         calibrate_llm(config,tasks,config['llm_reference_path'])
         return
     if job['action']=='quality_preflight':
@@ -63,7 +65,7 @@ def execute(plan,job):
     if job['action']=='existing':
         adapter=Path(job['adapter'])
         model,tok=policy.load(config,adapter)
-        tasks=select_evaluation(rows,config)
+        tasks=select_evaluation(rows(),config)
         evaluate(model,tok,tasks,{**config,'max_new_tokens':config['eval_max_new_tokens']},out/'test',lcb_root=lcb_root,
             train_state={'tokens':None,'seconds':None,'provenance':'Existing legacy adapter; see original training config',
                          'original_config':str(adapter.parent/'config.json')})
@@ -79,11 +81,12 @@ def execute(plan,job):
         result=json.loads(expected.read_text())
         if not all(k in result for k in ('adapter','model','seed','training_tokens','training_seconds','train_task_ids')):
             raise ValueError('Incomplete external baseline provenance')
-        if any(t not in {r['id'] for r in rows if r['split']=='train'} for t in result['train_task_ids']):
+        training_ids={r['id'] for r in rows('train')}
+        if set(result['train_task_ids'])-training_ids:
             raise ValueError('External baseline used non-training tasks')
         config.update(model=result['model'],seed=result['seed'],model_revision=prepared['models'][result['model']])
         adapter=Path(result['adapter']);model,tok=policy.load(config,adapter)
-        test=select_evaluation(rows,config)
+        test=select_evaluation(rows(),config)
         evaluate(model,tok,test,{**config,'max_new_tokens':config['eval_max_new_tokens']},out/'test',lcb_root=lcb_root,
                  train_state={'tokens':result['training_tokens'],'seconds':result['training_seconds'],
                               'source_commit':job['source_commit'],'source_url':job['source_url']})
@@ -98,7 +101,7 @@ def execute(plan,job):
     if job['action']=='synthetic':
         out=root/'synthetic'/job['model'].replace('/','_')
         out.mkdir(parents=True,exist_ok=True)
-        selected=select(rows,'train',['programming','writing'],config['synthetic_tasks_per_domain'])
+        selected=select(rows('train'),'train',['programming','writing'],config['synthetic_tasks_per_domain'])
         model,tok=policy.load(config)
         records=[]
         for task in selected:
@@ -124,7 +127,7 @@ def execute(plan,job):
     if job['action']=='audit':
         from .audit import gradient_audit
         domain=job.get('audit_domain','programming')
-        tasks=select(rows,'val',[domain],config['audit_tasks'])
+        tasks=select(rows('val'),'val',[domain],config['audit_tasks'])
         priors={v:prior_for(plan,job,v)[domain] for v in ('human','shuffled','uniform')}
         adapter=None
         if job.get('checkpoint_run'):
@@ -132,9 +135,14 @@ def execute(plan,job):
             adapter=Path(latest['checkpoint'])/'adapter'
         gradient_audit(config,tasks,priors,root/'audits'/job['id'],lcb_root,adapter=adapter)
         return
-    if job['action']=='train_eval':
+    if job['action'] in ('train_eval','learning_preflight'):
+        probe=job['action']=='learning_preflight'
         domains=['programming','writing'] if job['train_domain']=='mixed' else [job['train_domain']]
-        tasks=select(rows,'train',domains)+select(rows,'val',domains,config['validation_limit_per_domain'])
+        tasks=select(rows('train'),'train',domains)
+        if probe:
+            out=root/'learning_preflight'/job['id']
+            config.update(steps=config['learning_preflight_steps'],checkpoint_every=1,token_budget=0)
+        else:tasks+=select(rows('val'),'val',domains,config['validation_limit_per_domain'])
         variant=job['method'] if job['method'] in COGNITIVE else 'human'
         priors=prior_for(plan,job,variant)
         out.mkdir(parents=True,exist_ok=True)
@@ -142,6 +150,23 @@ def execute(plan,job):
         config['prior_hash']=digest(priors)
         config['training_task_hash']=digest(tasks)
         if not trainer.train(config,tasks,priors,out,lcb_root):raise InterruptedError
+        if probe:
+            state=json.loads((out/'complete.json').read_text())
+            from .diagnostics import training_report
+            health=training_report(out)['health']
+            truncation=health['mean_truncation_fraction'];coverage=health['valid_structure_fraction']
+            checks={'nonzero_optimizer_updates':state.get('optimizer_updates',0)>0,
+                    'finite_metrics':health['finite_logged_metrics'],
+                    'truncation_within_limit':truncation is not None and truncation<=config.get('max_truncation_fraction',.25),
+                    'valid_graph_coverage':coverage is not None and coverage>=config.get('min_valid_graph_fraction',.7)}
+            passed=all(checks.values())
+            atomic_json(out/'learning_gate.json',{'passed':passed,'checks':checks,
+                        'optimizer_updates':state.get('optimizer_updates',0),'health':health,
+                        'batches':state['step'],'limitation':'A nonzero update is a viability check, not evidence of improvement.'})
+            if not passed:
+                reason='no optimizer updates' if not checks['nonzero_optimizer_updates'] else ', '.join(k for k,v in checks.items() if not v)
+                raise ValueError('Learning preflight failed: '+reason+'. Inspect rewards, reasoning coverage and generation budgets before the main pilot: '+str(out))
+            return
         # train() has returned: release its cached GPU buffers before a fresh eval load.
         import gc
         gc.collect()
@@ -151,7 +176,7 @@ def execute(plan,job):
         return
     if job['action']=='base':
         model,tok=policy.load(config)
-        tasks=select_evaluation(rows,config)
+        tasks=select_evaluation(rows(),config)
         evaluate(model,tok,tasks,{**config,'max_new_tokens':config['eval_max_new_tokens']},out/'test',lcb_root=lcb_root)
 
 
@@ -164,7 +189,7 @@ def evaluate_only(plan,job):
     config=json.loads((out/'config.json').read_text())
     latest=json.loads((out/'latest.json').read_text())
     model,tok=load(config,Path(latest['checkpoint'])/'adapter')
-    rows=read_jsonl(Path(plan['data_root'])/'tasks.jsonl')
+    rows=iter_jsonl(Path(plan['data_root'])/'tasks.jsonl')
     tasks=select_evaluation(rows,config)
     state=json.loads((out/'complete.json').read_text())
     evaluate(model,tok,tasks,{**config,'max_new_tokens':config['eval_max_new_tokens']},out/'test',

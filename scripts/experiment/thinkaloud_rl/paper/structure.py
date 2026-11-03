@@ -219,7 +219,7 @@ class StructureScorer:
 
 def calibrate_llm(config, tasks, out):
     """Frozen base-model reference from TRAIN prompts only; no final-test feedback."""
-    from .model import load,sample
+    from .model import load,sample,SYSTEM,REASONING_SYSTEM,ANSWER_SYSTEM
     from transformers import set_seed
     from .common import write_jsonl
     import json
@@ -231,8 +231,12 @@ def calibrate_llm(config, tasks, out):
     cache=out.with_suffix('.calibration');cache.mkdir(parents=True,exist_ok=True)
     keys=('model','model_revision','structure_embedding_model','structure_embedding_revision',
           'structure_threshold','min_graph_steps','max_graph_steps','max_new_tokens',
-          'max_prompt_tokens','group_size','system_prompt','load_in_4bit','device')
+          'max_prompt_tokens','group_size','system_prompt','reasoning_prefill','load_in_4bit','device','dtype',
+          'generation_protocol','reasoning_fraction','sampling_temperature','attention_implementation')
     signature=digest({'protocol':'training_prompt_calibration_v2',
+                      'policy_system':config.get('system_prompt') or SYSTEM,
+                      'two_stage_systems':[REASONING_SYSTEM,ANSWER_SYSTEM],
+                      'reasoning_prefill':config.get('reasoning_prefill',True),
                       'config':{k:config.get(k) for k in keys},'tasks':tasks})
     signature_file=cache/'signature.json'
     if signature_file.exists() and json.loads(signature_file.read_text())!=signature:
@@ -252,7 +256,10 @@ def calibrate_llm(config, tasks, out):
                 r=sample(model,tok,task,{**config,'telemetry_role':'base_profile_policy'})
                 row={'task_id':task['id'],'domain':task['domain'],'sample':j,'text':r['text'],
                      'token_ids':r['ids'],'prompt_tokens':r['prefix'],'truncated':r['truncated'],
-                     'status':'generated'}
+                     'generation_protocol':r.get('generation_protocol','tagged_single_pass'),
+                     'reasoning_tokens':r.get('reasoning_tokens'),
+                     'reasoning_truncated':r.get('reasoning_truncated'),
+                     'answer_truncated':r.get('answer_truncated'),'status':'generated'}
                 # Save the generation even if graph encoding or a later gate fails.
                 atomic_json(path,row)
             if row['status']=='generated':
@@ -279,6 +286,13 @@ def calibrate_llm(config, tasks, out):
         coverage[domain]={'samples':len(subset),'valid_samples':sum(r['valid'] for r in subset),
                           'valid_prompts':len({r['task_id'] for r in subset if r['valid']}),
                           'truncated_samples':sum(r['truncated'] for r in subset),'rejections':dict(reasons)}
+        # Per-stage lengths size the reasoning/answer budgets; truncated counts mark
+        # censored percentiles (the true length exceeds the cap).
+        for stage in ('reasoning','answer'):
+            lengths=sorted(r['reasoning_tokens'] if stage=='reasoning' else len(r['token_ids'])-r['reasoning_tokens']
+                           for r in subset if r.get('reasoning_tokens') is not None)
+            coverage[domain][stage+'_tokens']={'p50':lengths[len(lengths)//2],'p95':lengths[min(len(lengths)-1,int(.95*len(lengths)))],
+                'max':lengths[-1],'truncated':sum(bool(r.get(stage+'_truncated')) for r in subset)} if lengths else None
     audit_path=out.with_suffix('.coverage.json')
     insufficient=[d for d,c in coverage.items() if c['valid_prompts']<2]
     atomic_json(audit_path,{'coverage':coverage,'passed':not insufficient,
