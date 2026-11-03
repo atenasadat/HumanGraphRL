@@ -19,21 +19,24 @@ KINDS = CHECKABLE + ('plan_or_hypothesis', 'fiction', 'opinion_or_recommendation
 SEVERE_FLAGS = {'nonsense', 'invented_citation', 'invented_result', 'contradiction', 'prompt_injection'}
 # Graded penalty for unsupported background facts: reward = quality * (1 - penalty * fraction).
 UNSUPPORTED_PENALTY = .5
+MAX_CLAIMS = 8
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
     'required': ['scores', 'flags', 'claims', 'reason'],
     'properties': {
         'scores': {'type': 'object', 'additionalProperties': False, 'required': list(DIMENSIONS),
                    'properties': {key: {'type': 'integer', 'enum': [0, 1, 2, 3, 4]} for key in DIMENSIONS}},
-        'flags': {'type': 'array', 'items': {'type': 'string', 'enum': sorted(FLAGS)}},
-        'claims': {'type': 'array', 'items': {
+        # Length/count caps force the constrained decoder to close strings, so a
+        # degenerate judge cannot run to max_new_tokens inside one field.
+        'flags': {'type': 'array', 'maxItems': len(FLAGS), 'items': {'type': 'string', 'enum': sorted(FLAGS)}},
+        'claims': {'type': 'array', 'maxItems': MAX_CLAIMS, 'items': {
             'type': 'object', 'additionalProperties': False,
             # Quote first, then classify: the kind decision can condition on the quoted wording.
             'required': ['claim', 'kind', 'evidence', 'verdict'],
-            'properties': {'claim': {'type': 'string'}, 'kind': {'type': 'string', 'enum': list(KINDS)},
-                           'evidence': {'type': 'string'},
+            'properties': {'claim': {'type': 'string', 'maxLength': 240}, 'kind': {'type': 'string', 'enum': list(KINDS)},
+                           'evidence': {'type': 'string', 'maxLength': 300},
                            'verdict': {'type': 'string', 'enum': sorted(VERDICTS)}}}},
-        'reason': {'type': 'string'},
+        'reason': {'type': 'string', 'maxLength': 500},
     },
 }
 VALIDATOR = Draft202012Validator(SCHEMA)
@@ -130,6 +133,8 @@ def build_prompt(candidate, task, errors=None):
         'factual assertions were found, not that fiction was verified as true. A proposal that claims a completed '
         'experiment or measured results DOES make factual assertions and must be checked. '
         'Use the provided evidence only to certify factual claims. Do not confuse fluent prose with factual support. '
+        'List at most the 8 most material claims, each a short verbatim excerpt of at most 240 characters; keep '
+        'evidence under 300 and reason under 500 characters. '
         'List material factual claims individually: the claim field must be an EXACT verbatim quotation from '
         'the candidate, never a placeholder or a quotation from the request. Then give its kind, evidence and verdict '
         'supported/unsupported/contradicted/unverifiable. kind is empirical_result ONLY when the text states that a study, '
