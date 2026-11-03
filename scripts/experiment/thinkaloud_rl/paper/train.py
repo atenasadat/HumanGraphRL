@@ -157,16 +157,41 @@ def train(config,tasks,priors,out,lcb_root=None):
             return {k:merge(a.get(k,{}),v) if isinstance(v,dict) else
                     a.get(k,0)+v if isinstance(v,(int,float)) else v for k,v in b.items()}
         return merge(usage_base,current)
+    def judge_guard(action, before):
+        from .output_quality import JudgeResponseError
+        try:
+            return action()
+        except (JudgeResponseError, InterruptedError) as exc:
+            # The current batch has not updated the optimizer. Replay it with the
+            # same RNG; retain all previously committed weights and optimizer state.
+            restore_rng(before)
+            checkpoint(out,model,tok,optimizer,state,value_model,value_optimizer)
+            atomic_json(out/'judge_failure.json',{'step':state['step'],'error':str(exc),
+                        'resume':'Replay incomplete batch or validation from the committed state'})
+            from .diagnostics import training_report
+            training_report(out)
+            raise
     val_tasks=[t for t in tasks if t['split']=='val']
     train_tasks=[t for t in tasks if t['split']=='train']
     if not train_tasks:raise ValueError('No training tasks')
     if len(train_tasks)<config['prompts_per_batch']:raise ValueError('Too few distinct prompts')
     budget=config.get('token_budget',0)
-    if runtime and val_tasks and state['step']==0:
+    validated_step=None
+    def validate_current():
+        nonlocal validated_step
         before=rng_state();validation_start=time.monotonic()
-        evaluate(model,tok,val_tasks,config,out/'validation'/'step_000000',lcb_root=lcb_root,
-                 samples=config.get('validation_samples',2),train_state=state.copy(),runtime=runtime)
-        restore_rng(before);state['validation_seconds']+=time.monotonic()-validation_start
+        atomic_json(out/'pending_validation.json',{'step':state['step']})
+        judge_guard(lambda:evaluate(model,tok,val_tasks,config,out/'validation'/f'step_{state["step"]:06d}',lcb_root=lcb_root,
+                 samples=config.get('validation_samples',2 if runtime else 1),train_state=state.copy(),runtime=runtime),before)
+        restore_rng(before)
+        if runtime:state['validation_seconds']+=time.monotonic()-validation_start
+        (out/'pending_validation.json').unlink()
+        validated_step=state['step']
+    if val_tasks and ((out/'pending_validation.json').exists() or (runtime and state['step']==0)):
+        if (out/'pending_validation.json').exists():
+            pending=json.loads((out/'pending_validation.json').read_text())
+            if pending['step']!=state['step']:raise ValueError('Pending validation/checkpoint step mismatch')
+        validate_current()
     while state['step']<config['steps'] and (not budget or state['tokens']<budget):
         if STOP:break
         step_rng=rng_state()
@@ -190,7 +215,7 @@ def train(config,tasks,priors,out,lcb_root=None):
                     checkpoint(out,model,tok,optimizer,state,value_model,value_optimizer)
                     return False
                 r=policy.sample(model,tok,task,config);r['domain']=task['domain']
-                scored=runtime.assess(r['text'],task) if runtime else score(r['text'],task,lcb_root=lcb_root,timeout=config.get('code_timeout',6))
+                scored=judge_guard(lambda:runtime.assess(r['text'],task),step_rng) if runtime else score(r['text'],task,lcb_root=lcb_root,timeout=config.get('code_timeout',6))
                 if scored['reward'] is None:raise ValueError('Training requires a defined reward')
                 if not math.isfinite(scored['reward']):raise ArithmeticError('Nonfinite training reward')
                 group.append(r);group_rewards.append(scored['reward'])
@@ -273,16 +298,9 @@ def train(config,tasks,priors,out,lcb_root=None):
         if step%config.get('checkpoint_every',5)==0 or STOP:
             checkpoint(out,model,tok,optimizer,state,value_model,value_optimizer)
         if val_tasks and step%config.get('eval_every',20)==0 and not STOP:
-            before=rng_state();validation_start=time.monotonic()
-            evaluate(model,tok,val_tasks,config,out/'validation'/f'step_{step:06d}',lcb_root=lcb_root,
-                     samples=config.get('validation_samples',1),train_state=state.copy(),runtime=runtime)
-            restore_rng(before)
-            if runtime:state['validation_seconds']+=time.monotonic()-validation_start
-    if runtime and val_tasks and not STOP and state['step']%config.get('eval_every',20):
-        before=rng_state();validation_start=time.monotonic()
-        evaluate(model,tok,val_tasks,config,out/'validation'/f'step_{state["step"]:06d}',lcb_root=lcb_root,
-                 samples=config.get('validation_samples',2),train_state=state.copy(),runtime=runtime)
-        restore_rng(before);state['validation_seconds']+=time.monotonic()-validation_start
+            validate_current()
+    if runtime and val_tasks and not STOP and state['step']%config.get('eval_every',20) and validated_step!=state['step']:
+        validate_current()
     if runtime:state['reward_usage']=usage()
     checkpoint(out,model,tok,optimizer,state,value_model,value_optimizer)
     complete=state['step']>=config['steps'] or bool(budget and state['tokens']>=budget)

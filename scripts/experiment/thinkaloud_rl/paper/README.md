@@ -6,6 +6,13 @@ output rewards, semantic graph rewards, one pilot seed, diagnostic/final partiti
 mandatory judge preflight and human-review gates. The older estimator profiles
 below remain available for controlled comparisons and historical reevaluation.
 
+Writing judges now use mandatory JSON-schema token constraints, bounded
+truncation retries, and detailed attempt records. Training checkpoints on a
+persistent judge failure and replays pending validation on resume. See
+`docs/reports/2026-11-02_constrained_judge_generation_codex.md` for verification,
+limitations, and CARC update commands. A changed source fingerprint requires a
+new suite root; existing model and dataset downloads remain cached.
+
 
 This is a new, isolated experiment suite. Use `carc_paper_suite.sh`, rather than
 the legacy benchmark scripts or their recorded pass rates. It submits **one GPU

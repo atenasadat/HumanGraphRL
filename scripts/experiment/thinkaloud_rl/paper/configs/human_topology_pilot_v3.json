@@ -92,6 +92,7 @@
   "reward_judge_model": "microsoft/Phi-3.5-mini-instruct",
   "evaluation_judge_model": "mistralai/Mistral-7B-Instruct-v0.3",
   "judge_max_new_tokens": 1536,
+  "judge_retry_max_new_tokens": 3072,
   "judge_max_prompt_tokens": 16384,
   "mixed_sampling": "balanced",
   "validation_samples": 2,

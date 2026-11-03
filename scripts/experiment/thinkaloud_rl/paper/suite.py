@@ -44,7 +44,7 @@ def defaults(profile):
                    structure_reward_weight=.2,outcome_reward_weight=1.,
                    reward_judge_model='microsoft/Phi-3.5-mini-instruct',
                    evaluation_judge_model='mistralai/Mistral-7B-Instruct-v0.3',
-                   judge_max_new_tokens=1536,judge_max_prompt_tokens=16384,
+                   judge_max_new_tokens=1536,judge_retry_max_new_tokens=3072,judge_max_prompt_tokens=16384,
                    audit_trained_methods=['grpo','human'],mixed_sampling='balanced',
                    validation_samples=2,validation_tail_points=4,
                    plateau_tolerance=.01,review_samples_per_run=8)
@@ -87,6 +87,8 @@ def create_plan(root,config,data_root):
     if config['prompts_per_batch']<2 or config['group_size']<2:raise ValueError('Use at least two prompts and samples per group')
     if config.get('robust_pilot'):
         import math
+        if config.get('judge_retry_max_new_tokens',config['judge_max_new_tokens']*2)<config['judge_max_new_tokens']:
+            raise ValueError('Judge retry token budget must not shrink')
         if any(not math.isfinite(config[k]) or config[k]<0 for k in ('structure_reward_weight','outcome_reward_weight')):
             raise ValueError('Reward weights must be finite and nonnegative')
         if config['outcome_reward_weight']<=0:raise ValueError('Keep a final-output reward in the joint objective')
@@ -166,6 +168,11 @@ def create_plan(root,config,data_root):
 def prepare_plan(plan):
     from huggingface_hub import HfApi,snapshot_download
     from .data import prepare
+    if plan['config'].get('robust_pilot'):
+        # Fail on missing/incompatible decoder dependencies before GPU allocation.
+        from .constrained import json_prefix_filter
+        from .output_quality import VALIDATOR
+        VALIDATOR.check_schema(VALIDATOR.schema)
     root=Path(plan['root']);data=Path(plan['data_root'])
     prepare(data)
     build(root/'priors',held_out=plan['config'].get('held_out_participants',[]))

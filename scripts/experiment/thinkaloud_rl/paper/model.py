@@ -52,13 +52,18 @@ def sample(model,tok,task,config,greedy=False):
     rendered=render(tok,task['prompt'],config.get('system_prompt'))
     inp=tok(rendered,return_tensors='pt').to(next(model.parameters()).device)
     if inp['input_ids'].shape[1]>config.get('max_prompt_tokens',8192):
-        raise ValueError('Prompt exceeds configured budget; no silent truncation: '+task['id'])
+        raise ValueError('Prompt exceeds configured budget; no silent truncation: '+task.get('id','judge'))
     horizon=config['max_new_tokens']
+    constraints={}
+    if config.get('response_json_schema') is not None:
+        from .constrained import json_prefix_filter
+        constraints={'prefix_allowed_tokens_fn':json_prefix_filter(tok,config['response_json_schema']),
+                     'forced_eos_token_id':None}
     model.eval()
     with torch.no_grad():
         out=model.generate(**inp,max_new_tokens=horizon,do_sample=not greedy,
             **({} if greedy else {'temperature':1.,'top_p':1.,'top_k':0}),
-            pad_token_id=tok.pad_token_id)
+            pad_token_id=tok.pad_token_id,**constraints)
     prefix=inp['input_ids'].shape[1]
     ids=out[0,prefix:].tolist()
     from .telemetry import generation
@@ -69,7 +74,7 @@ def sample(model,tok,task,config,greedy=False):
     eos=model.generation_config.eos_token_id
     eos=set(eos if isinstance(eos,list) else [eos])
     return {'sequence':out,'prefix':prefix,'ids':ids,'text':text,'raw_text':raw,
-            'prompt_opens_think':opens,'truncated':len(ids)>=horizon and ids[-1] not in eos}
+            'prompt_opens_think':opens,'truncated':bool(ids) and len(ids)>=horizon and ids[-1] not in eos}
 
 
 def log_probs(model,rollout):

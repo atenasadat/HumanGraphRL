@@ -16,3 +16,5 @@ pebble>=5.1,<6
 python-Levenshtein>=0.26
 timeout-decorator>=0.5
 jsonlines>=4
+lm-format-enforcer==0.11.3
+jsonschema==4.23.0
