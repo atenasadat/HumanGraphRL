@@ -12,6 +12,10 @@ persistent judge failure and replays pending validation on resume. See
 `docs/reports/2026-11-02_constrained_judge_generation_codex.md` for verification,
 limitations, and CARC update commands. A changed source fingerprint requires a
 new suite root; existing model and dataset downloads remain cached.
+Calibration now saves every generated trace and per-domain coverage, including
+rejected traces, and resumes generation per sample. The current pilot launcher
+defaults to `pilots/results/human_topology_pilot_v3_calibration_audit/`; see
+`docs/reports/2026-11-02_calibration_coverage_and_resume_codex.md`.
 
 
 This is a new, isolated experiment suite. Use `carc_paper_suite.sh`, rather than

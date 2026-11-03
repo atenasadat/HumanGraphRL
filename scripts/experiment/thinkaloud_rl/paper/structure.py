@@ -94,12 +94,12 @@ def vector(g):
     return [g['features'][name] for name in FEATURES]
 
 
-def reference(records):
+def reference(records, label='human participants'):
     # Give each participant equal weight, irrespective of transcript length.
     participants = defaultdict(list)
     for r in records: participants[r['participant']].append(r['features'])
     means = np.array([np.mean(rows, axis=0) for rows in participants.values()])
-    if len(means) < 2: raise ValueError('At least two human participants per reference')
+    if len(means) < 2: raise ValueError(f'At least two {label} per reference; found {len(means)}')
     center = np.median(means, axis=0)
     scale = np.maximum(1.4826 * np.median(np.abs(means - center), axis=0), .1)
     return {'center': center.tolist(), 'scale': scale.tolist(),
@@ -223,24 +223,75 @@ def calibrate_llm(config, tasks, out):
     from transformers import set_seed
     from .common import write_jsonl
     import json
-    encoder=GraphEncoder(config);model,tok=load(config)
+    out=Path(out);out.parent.mkdir(parents=True,exist_ok=True)
+    if any(t['split']!='train' for t in tasks):
+        raise ValueError('LLM structural reference must use training prompts only')
+    if len({t['id'] for t in tasks})!=len(tasks):
+        raise ValueError('Duplicate calibration task IDs')
+    cache=out.with_suffix('.calibration');cache.mkdir(parents=True,exist_ok=True)
+    keys=('model','model_revision','structure_embedding_model','structure_embedding_revision',
+          'structure_threshold','min_graph_steps','max_graph_steps','max_new_tokens',
+          'max_prompt_tokens','group_size','system_prompt','load_in_4bit','device')
+    signature=digest({'protocol':'training_prompt_calibration_v2',
+                      'config':{k:config.get(k) for k in keys},'tasks':tasks})
+    signature_file=cache/'signature.json'
+    if signature_file.exists() and json.loads(signature_file.read_text())!=signature:
+        raise ValueError('Calibration settings changed; use a new calibration directory')
+    atomic_json(signature_file,signature)
+    encoder=model=tok=None
     records=[];samples=[]
     for task in tasks:
-        if task['split']!='train':raise ValueError('LLM structural reference must use training prompts only')
         for j in range(config['group_size']):
             from . import train
             if train.STOP:raise InterruptedError
-            set_seed(stable_seed('base_structure_profile',task['id'],j))
-            r=sample(model,tok,task,{**config,'telemetry_role':'base_profile_policy'})
-            units=steps(r['text'])
-            if config['min_graph_steps']<=len(units)<=config['max_graph_steps']:
-                g=encoder.describe(units)
-                records.append({'participant':task['id'],'domain':task['domain'],'features':vector(g)})
-                samples.append({'task_id':task['id'],'domain':task['domain'],'sample':j,'text':r['text'],'graph':g})
+            path=cache/'samples'/(digest([task['id'],j])+'.json')
+            if path.exists():row=json.loads(path.read_text())
+            else:
+                if model is None:model,tok=load(config)
+                set_seed(stable_seed('base_structure_profile',task['id'],j))
+                r=sample(model,tok,task,{**config,'telemetry_role':'base_profile_policy'})
+                row={'task_id':task['id'],'domain':task['domain'],'sample':j,'text':r['text'],
+                     'token_ids':r['ids'],'prompt_tokens':r['prefix'],'truncated':r['truncated'],
+                     'status':'generated'}
+                # Save the generation even if graph encoding or a later gate fails.
+                atomic_json(path,row)
+            if row['status']=='generated':
+                units=steps(row['text'])
+                reason=('missing_or_incomplete_think_block' if not re.search(r'<think>.*?</think>',row['text'],re.S)
+                        else 'trace_too_short' if len(units)<config['min_graph_steps']
+                        else 'trace_too_long' if len(units)>config['max_graph_steps'] else None)
+                row.update(status='complete',valid=reason is None,reason=reason,steps=len(units),graph=None)
+                if row['valid']:
+                    if encoder is None:encoder=GraphEncoder(config)
+                    row['graph']=encoder.describe(units)
+                atomic_json(path,row)
+            samples.append(row)
+            if row['valid']:
+                records.append({'participant':task['id'],'domain':task['domain'],'features':vector(row['graph'])})
+    # Coverage and ALL traces must survive a failed reference-data gate.
+    write_jsonl(out.with_suffix('.samples.jsonl'),samples)
+    coverage={}
+    for domain in ('programming','writing'):
+        subset=[r for r in samples if r['domain']==domain]
+        reasons=defaultdict(int)
+        for r in subset:
+            if not r['valid']:reasons[r['reason']]+=1
+        coverage[domain]={'samples':len(subset),'valid_samples':sum(r['valid'] for r in subset),
+                          'valid_prompts':len({r['task_id'] for r in subset if r['valid']}),
+                          'truncated_samples':sum(r['truncated'] for r in subset),'rejections':dict(reasons)}
+    audit_path=out.with_suffix('.coverage.json')
+    insufficient=[d for d,c in coverage.items() if c['valid_prompts']<2]
+    atomic_json(audit_path,{'coverage':coverage,'passed':not insufficient,
+                          'minimum_valid_prompts_per_domain':2,'signature':signature})
+    if insufficient:
+        counts=', '.join(f'{d}={coverage[d]["valid_prompts"]}' for d in insufficient)
+        raise ValueError('LLM calibration requires valid reasoning graphs from at least two distinct '
+                         f'training prompts per domain; found {counts}. Inspect {audit_path} and '
+                         f'{out.with_suffix(".samples.jsonl")}. Saved generations will be reused on resume.')
     refs={}
     for domain in ('programming','writing','pooled'):
         subset=[r for r in records if domain=='pooled' or r['domain']==domain]
-        refs[domain]=reference(subset)
+        refs[domain]=reference(subset,label='distinct training prompts')
     human=json.loads(Path(config['structure_reference_path']).read_text())['references']
     gaps={d:{feature:refs[d]['center'][i]-human[d+'_train']['center'][i] for i,feature in enumerate(FEATURES)}
           for d in refs}
@@ -248,4 +299,3 @@ def calibrate_llm(config, tasks, out):
         'train_task_ids':[t['id'] for t in tasks],'model':config['model'],'model_revision':config['model_revision'],
         'status':'frozen_training_prompt_calibration_not_test_data',
         'limitation':'Semantic recurrence features can depend on topic and trace length; compare length-stratified results and independent human review.'})
-    write_jsonl(Path(out).with_suffix('.samples.jsonl'),samples)
