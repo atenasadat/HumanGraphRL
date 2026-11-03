@@ -76,15 +76,17 @@ def validate_response(text, candidate=None):
             misquoted.append(i)
         elif claim['kind'] in CHECKABLE and claim['verdict'] == 'supported' and not claim['evidence'].strip():
             errors.append(f'$.claims.{i}.evidence: supported claims require nonempty evidence')
-    # A misquoted claim cannot change a rejection already made on coherence, relevance
-    # or a severe flag; keep it for audit. Otherwise it could hide a veto, so fail.
+    # A misquoted claim is harmless when it cannot affect the reward: non-factual kinds
+    # are never scored, and an answer already rejected on coherence, relevance or a
+    # severe flag stays rejected. Keep those for audit; otherwise a misquoted factual
+    # claim could hide a veto, so fail.
     vetoed = obj['scores']['coherence'] < 2 or obj['scores']['relevance'] < 2 or bool(SEVERE_FLAGS & set(obj['flags']))
-    if misquoted and vetoed and not errors:
+    harmful = [i for i in misquoted if obj['claims'][i]['kind'] in CHECKABLE and not vetoed]
+    if misquoted and not harmful and not errors:
         obj['discarded_claims'] = [obj['claims'][i] for i in misquoted]
         obj['claims'] = [c for i, c in enumerate(obj['claims']) if i not in misquoted]
-    else:
-        errors += [f'$.claims.{i}.claim: quote exact text from the candidate; no placeholders or invented claims'
-                   for i in misquoted]
+    errors += [f'$.claims.{i}.claim: quote exact text from the candidate; no placeholders or invented claims'
+               for i in harmful]
     return (None if errors else obj), errors
 
 
