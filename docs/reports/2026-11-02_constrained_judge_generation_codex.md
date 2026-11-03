@@ -71,14 +71,15 @@ before replacing its source files.
 ```bash
 cd ~/HumanGraphRL
 git pull --ff-only
-source humangraphrl/bin/activate
-export TRAIN_VENV="$PWD/humangraphrl"
-export PAPER_VENV="$PWD/humangraphrl"
-export RUN_ROOT="$PWD/pilots/results/human_topology_pilot_v3_constrained"
 bash scripts/pilots/run_domain_pilot.sh prepare
 bash scripts/pilots/run_domain_pilot.sh submit
 ```
 
 Preparation installs `lm-format-enforcer==0.11.3` and `jsonschema==4.23.0` and
 checks their imports/schema before GPU allocation. Subsequent retries use the
-same root and only `submit`.
+same root and only `submit`. The pilot launcher defaults both environment paths
+to the repository's `humangraphrl/` environment and the run root to
+`pilots/results/human_topology_pilot_v3_constrained/`. No activation or exports
+are required. Explicit environment-variable overrides remain supported; clear old
+overrides with `unset TRAIN_VENV PAPER_VENV RUN_ROOT TOPGRPO_ROOT PAPER_CONFIG`
+once if they are still set in the terminal.
