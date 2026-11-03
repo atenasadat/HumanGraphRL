@@ -169,7 +169,10 @@ def verify(directory):
         path=directory/'upstream'/repo
         actual=subprocess.check_output(['git','-C',str(path),'rev-parse','HEAD'],text=True).strip()
         if actual!=m['revisions'][key]:raise ValueError('Upstream evaluator revision changed: '+repo)
-        subprocess.run(['git','-C',str(path),'diff','--exit-code','--quiet','HEAD'],check=True)
+        # status refreshes stale stat caches (fresh clones, other cluster nodes) and
+        # compares content; name the changed files instead of a bare exit status.
+        dirty=subprocess.check_output(['git','-C',str(path),'status','--porcelain','--untracked-files=no'],text=True)
+        if dirty.strip():raise ValueError(f'Upstream evaluator checkout has local changes ({repo}):\n{dirty[:2000]}')
     validate_tasks(iter_jsonl(directory/'tasks.jsonl'))
     return m
 
