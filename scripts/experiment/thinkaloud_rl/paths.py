@@ -1,7 +1,7 @@
 """Resolve the user's relocated data without rewriting original manifests."""
 from pathlib import Path
 
-ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'scripts/experiment').is_dir() and (p / 'processed_data').is_dir())
+ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'scripts/experiment').is_dir() and (p / 'data').is_dir())
 STUDY = Path.home() / 'Desktop/thougthgraph_studyData'
 LOCAL = STUDY / 'local_ThoughtGraphData'
 CLOUD = Path.home() / 'Library/CloudStorage/OneDrive-UniversityofSouthernCalifornia/ThoughtGraph/data'

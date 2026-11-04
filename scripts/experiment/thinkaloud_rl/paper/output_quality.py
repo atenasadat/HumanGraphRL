@@ -167,6 +167,13 @@ def build_prompt(candidate, task, errors=None):
 
 
 class OutputJudge:
+    def __new__(cls, config, phase='training'):
+        key = 'evaluation_judge' if phase == 'evaluation' else 'reward_judge'
+        if config.get(key + '_backend', 'evidence_json') != 'evidence_json':
+            from .specialist_judges import RubricJudge
+            return RubricJudge(config, phase)
+        return super().__new__(cls)
+
     def __init__(self, config, phase='training'):
         self.config = config; self.phase = phase; self.model = self.tok = None
         key = 'evaluation_judge' if phase == 'evaluation' else 'reward_judge'

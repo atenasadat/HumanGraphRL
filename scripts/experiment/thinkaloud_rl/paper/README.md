@@ -1,9 +1,10 @@
 # CARC paper experiments
 
-The v4 files are a local candidate. Live proposal/fiction judge checks still fail;
-full training remains gated. The repair report below records the evidence.
+The v5 files are a local candidate using specialist writing judges. Live validation
+of the replacements is pending; full training remains gated. See
+`docs/reports/2026-11-04_specialist_judges_codex.md` for evidence and limitations.
 
-Current pilot/full launchers use the v4 public-data and two-stage generation protocol.
+Current pilot/full launchers use the v5 configurations with public data and two-stage generation.
 See `docs/reports/2026-11-03_pipeline_repairs_codex.md` for measured checks and
 remaining limitations. The direct-topology method is described in
 `docs/reports/2026-11-02_human_topology_pilot_v3_codex.md`. It adds evidence-aware
@@ -14,9 +15,9 @@ below remain available for controlled comparisons and historical reevaluation.
 The policy first generates reasoning notes, then a final answer conditioned on
 those notes. Both sampled sections participate in the joint policy gradient;
 formatting delimiters are supplied by the pipeline and are not rewarded actions.
-The per-response token limit is split 25%/75%, with temperature 0.7 and no hidden
+The per-response token limit is split 50%/50%, with temperature 0.7 and no hidden
 repetition penalty or top-k/top-p filtering. Training uses the same probabilities.
-The v4 profiles select PyTorch SDPA attention to reduce attention-memory overhead;
+The v5 profiles select PyTorch SDPA attention to reduce attention-memory overhead;
 legacy profiles retain eager attention unless explicitly overridden. Attention
 choice is recorded in the configuration and calibration/judge cache identities.
 Before the 21 main pilot runs, three short learning preflights require real
@@ -24,7 +25,7 @@ optimizer updates, finite metrics, and the declared graph-coverage and truncatio
 limits in programming, writing and mixed contexts. There are now 38
 sequential stages. These checks do not establish improvement or publication readiness.
 
-The v4 pilot uses 150 training batches; the v4 full configuration provisionally
+The v5 pilot uses 150 training batches; the v5 full configuration provisionally
 uses 250, to be reconsidered using pilot validation curves before freezing the
 experiment. Both explicitly disable the cumulative training token cap
 (`token_budget: 0`, `training_stop_rule: fixed_batches`). Each batch samples four
@@ -42,18 +43,26 @@ five additional methods. Tokens, training/validation time and generation usage
 remain measurements. Compare validation curves at common measured compute values;
 do not call training wall time active GPU time.
 
-Writing judges now use mandatory JSON-schema token constraints, exact candidate
-quotations, bounded truncation retries, and detailed attempt records. Any dimension
-below 2/4 blocks the output reward, even if the judge omits a risk flag. Training
+Writing rewards use Atla Selene Mini–8B; evaluation uses Prometheus 2–8x7B (about 25 GB in
+4-bit, so jobs request an A100). These
+specialist models use their native reference-free scoring templates, not the
+historical custom JSON schema. Each scores coherence, relevance, factual grounding
+and feasibility separately from 1 to 5. The mean of `(score - 1) / 4` is the
+quality proxy; any dimension below 3 zeros the output reward and structure bonus.
+This gate is our project protocol, not a verified hallucination detector.
+Each answer requires four judge calls, with at most one retry per criterion per
+invocation. Invalid/truncated outputs fail closed; completed criteria are cached.
+Training
 checkpoints on a persistent judge failure and saves weights before validation,
 including when validation and checkpoint intervals differ. Pending validation
 replays on resume. Partial preflight failures retain their completed checks. See
-`docs/reports/2026-11-02_constrained_judge_generation_codex.md` for verification,
-limitations, and CARC update commands. A changed source fingerprint requires a
+`docs/reports/2026-11-04_specialist_judges_codex.md` for verification and limitations.
+The old constrained JSON backend remains available for historical configurations.
+A changed source fingerprint requires a
 new suite root; existing model and dataset downloads remain cached.
 Calibration now saves every generated trace and per-domain coverage, including
 rejected traces, and resumes generation per sample. The current pilot launcher
-defaults to `pilots/results/human_topology_pilot_v4/`. Its public-data directory is
+defaults to `pilots/results/human_topology_pilot_v5/`. Its public-data directory is
 `/scratch1/$USER/humangraphrl_public_data_v2`. The old prepared corpus contained
 local template writing prompts and is intentionally rejected by the new verifier.
 Writing now uses the original English WritingBench prompts and criteria with a
@@ -97,7 +106,7 @@ Then run the mechanism pilot:
 
 ```bash
 export PROFILE=pilot
-export RUN_ROOT=$PWD/pilots/results/human_topology_pilot_v4
+export RUN_ROOT=$PWD/pilots/results/human_topology_pilot_v5
 bash scripts/experiment/thinkaloud_rl/carc_paper_suite.sh prepare
 bash scripts/experiment/thinkaloud_rl/carc_paper_suite.sh submit
 ```

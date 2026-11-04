@@ -8,7 +8,7 @@ import random
 import re
 import tempfile
 
-ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'scripts/experiment').is_dir() and (p / 'processed_data').is_dir())
+ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'scripts/experiment').is_dir() and (p / 'data').is_dir())
 
 
 def validate_training_schedule(config):
@@ -119,6 +119,7 @@ def paired_bootstrap(matrix, repetitions=2000, seed=2026, confidence=.95):
 
 def source_fingerprint():
     paths = list((ROOT/'scripts/experiment/thinkaloud_rl/paper').glob('*.py'))
+    paths += list((ROOT/'scripts/experiment/thinkaloud_rl/paper/judge_templates').glob('*.txt'))
     paths += [ROOT/'scripts/experiment/thinkaloud_rl/reasoning_shaper.py',
               ROOT/'scripts/experiment/thinkaloud_rl/multidomain_tasks.py',
               ROOT/'scripts/experiment/thinkaloud_rl/prepare_multidomain.py']

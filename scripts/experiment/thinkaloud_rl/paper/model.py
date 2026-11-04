@@ -58,9 +58,12 @@ def load(config, adapter=None, trainable=False):
     return model,tok
 
 
-def render(tok,prompt,system=None):
+def render(tok,prompt,system=None,user_only=False):
     # Disable auto-thinking where supported; our explicit protocol stays identical.
     from jinja2.exceptions import TemplateError
+    if user_only:
+        return tok.apply_chat_template([{'role':'user','content':prompt}],
+            tokenize=False,add_generation_prompt=True,enable_thinking=False)
     try:
         return tok.apply_chat_template([{'role':'system','content':system or SYSTEM},{'role':'user','content':prompt}],
             tokenize=False,add_generation_prompt=True,enable_thinking=False)
@@ -102,10 +105,12 @@ def sample(model,tok,task,config,greedy=False):
 
 def _sample(model,tok,task,config,greedy=False):
     started=time.monotonic()
-    rendered=render(tok,task['prompt'],config.get('system_prompt'))
+    rendered=render(tok,task['prompt'],config.get('system_prompt'),config.get('chat_template_mode')=='user_only')
     if config.get('reasoning_prefill',True) and not config.get('system_prompt'):
         rendered+='<think>\n'
-    inp=tok(rendered,return_tensors='pt').to(next(model.parameters()).device)
+    # Native judge chat templates already contain BOS/control tokens.
+    token_options={'add_special_tokens':False} if config.get('chat_template_mode')=='user_only' else {}
+    inp=tok(rendered,return_tensors='pt',**token_options).to(next(model.parameters()).device)
     if inp['input_ids'].shape[1]>config.get('max_prompt_tokens',8192):
         raise ValueError('Prompt exceeds configured budget; no silent truncation: '+task.get('id','judge'))
     horizon=config['max_new_tokens']

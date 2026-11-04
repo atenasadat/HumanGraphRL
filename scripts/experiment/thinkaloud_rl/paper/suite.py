@@ -42,8 +42,13 @@ def defaults(profile):
                    structure_threshold=.7,structure_sensitivity_thresholds=[.6,.7,.8],
                    human_graph_window=32,min_graph_steps=4,max_graph_steps=128,
                    structure_reward_weight=.2,outcome_reward_weight=1.,
-                   reward_judge_model='microsoft/Phi-3.5-mini-instruct',
-                   evaluation_judge_model='mistralai/Mistral-7B-Instruct-v0.3',
+                   reward_judge_model='AtlaAI/Selene-1-Mini-Llama-3.1-8B',
+                   reward_judge_backend='selene_absolute',
+                   reward_judge_revision='427792f1c3e2073cb7da216924fd884b1ba496e0',
+                   # Larger, different-family judge for evaluation (~25 GB in 4-bit).
+                   evaluation_judge_model='prometheus-eval/prometheus-8x7b-v2.0',
+                   evaluation_judge_backend='prometheus_absolute',
+                   evaluation_judge_revision='2db013b60e3e91f7a06113e436410899768e8228',
                    judge_max_new_tokens=1536,judge_retry_max_new_tokens=3072,judge_max_prompt_tokens=16384,
                    audit_trained_methods=['grpo','human'],mixed_sampling='balanced',
                    validation_samples=2,validation_tail_points=4,
@@ -95,6 +100,8 @@ def create_plan(root,config,data_root):
     primary=config.get('primary_methods',[])
     if any(m not in METHODS for m in primary):raise ValueError('Unknown primary method')
     if config.get('robust_pilot'):
+        from .specialist_judges import validate_config
+        validate_config(config)
         import math
         if config.get('generation_protocol','tagged_single_pass')=='two_stage_v1':
             if not 0<config.get('reasoning_fraction',.25)<1:raise ValueError('Invalid reasoning budget fraction')
@@ -202,7 +209,9 @@ def create_plan(root,config,data_root):
 def prepare_plan(plan):
     from huggingface_hub import HfApi,snapshot_download
     from .data import prepare
-    if plan['config'].get('robust_pilot'):
+    if plan['config'].get('robust_pilot') and any(
+            plan['config'].get(k+'_backend','evidence_json')=='evidence_json'
+            for k in ('reward_judge','evaluation_judge')):
         # Fail on missing/incompatible decoder dependencies before GPU allocation.
         from .constrained import json_prefix_filter
         from .output_quality import VALIDATOR
@@ -222,7 +231,9 @@ def prepare_plan(plan):
     if 'dra' in plan['config']['methods']:names.append(plan['config']['embedding_model'])
     if plan['config'].get('judge_model'):names.append(plan['config']['judge_model'])
     for name in dict.fromkeys(names):
-        revision=HfApi().model_info(name).sha
+        pinned=[plan['config'].get(k+'_revision') for k in ('reward_judge','evaluation_judge')
+                if plan['config'].get(k+'_model')==name and plan['config'].get(k+'_revision')]
+        revision=pinned[0] if pinned else HfApi().model_info(name).sha
         snapshot_download(name,revision=revision,allow_patterns=['*.json','*.safetensors','*.bin','*.model','*.txt','*.jinja','*.py'])
         models[name]=revision
     prepared={'plan_hash':digest(plan),'models':models,'data_manifest_hash':file_hash(data/'manifest.json'),
@@ -337,7 +348,13 @@ def main():
     args=p.parse_args()
     if args.command=='init':
         cfg=defaults(args.profile)
-        if args.config:cfg.update(json.loads(args.config.read_text()))
+        if args.config:
+            overrides=json.loads(args.config.read_text())
+            # Historical configurations keep their original JSON judge protocol.
+            for key in ('reward_judge','evaluation_judge'):
+                if key+'_model' in overrides and key+'_backend' not in overrides:
+                    cfg.pop(key+'_backend',None);cfg.pop(key+'_revision',None)
+            cfg.update(overrides)
         create_plan(args.root,cfg,args.data_root);return
     plan=json.loads((args.root/'plan.json').read_text())
     if args.command=='prepare':prepare_plan(plan)

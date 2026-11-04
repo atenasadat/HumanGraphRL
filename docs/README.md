@@ -1,7 +1,8 @@
 # HumanGraphRL
 
-**Local verification found unresolved judge errors on valid proposals and fiction.
-Full training is not cleared.** See the
+**The v5 candidate replaces the general instruction judges with specialist judges.
+Live validation of the replacements is pending; full training is not cleared.** See the
+[judge replacement report](reports/2026-11-04_specialist_judges_codex.md) and the
 [repair report](reports/2026-11-03_pipeline_repairs_codex.md).
 The latest [CARC smoke-test report](reports/2026-11-03_carc_smoke_test_codex.md)
 records fresh programming integration, fixes, and remaining blockers.
@@ -38,14 +39,16 @@ bash scripts/pilots/run_domain_pilot.sh submit
 bash scripts/pilots/run_domain_pilot.sh status
 ```
 
-The current v4 pilot tests direct human-topology rewards with a separate final-output
+The current v5 pilot tests direct human-topology rewards with a separate final-output
 reward: seven conditions, three contexts, one seed (21 runs), 150 training batches each,
 and balanced mixed-domain batches. It includes frozen-LLM and shuffled controls,
 independent writing judges, diagnostic/final data separation, human review packets,
 and automatic token/time/validation reports. See the
 [implemented method](reports/2026-11-02_human_topology_pilot_v3_codex.md) and
 [repairs, local tests and remaining checks](reports/2026-11-03_pipeline_repairs_codex.md).
-Outputs go to `pilots/results/human_topology_pilot_v4/`. Prepared public tasks go to
+Writing rewards use Atla Selene Mini–8B; independent writing evaluation uses the larger,
+different-family Prometheus 2–8x7B. Both use their native rubric formats with pinned model revisions.
+Outputs go to `pilots/results/human_topology_pilot_v5/`. Prepared public tasks go to
 `/scratch1/$USER/humangraphrl_public_data_v2`. Local integration checks are distinct
 from the complete CARC experiment; CUDA verification and human reviews remain required.
 Three short learning checks run before the main pilot. They stop the suite if a
@@ -60,7 +63,7 @@ bash scripts/experiment/run_paper_experiment.sh prepare
 bash scripts/experiment/run_paper_experiment.sh submit
 ```
 
-The full launcher uses `human_topology_full_v4.json` and refuses to start until
+The full launcher uses `human_topology_full_v5.json` and refuses to start until
 the pilot's automated and human-review checks are complete. Its training caps
 remain provisional until the pilot is inspected. Full-training outputs go to
 `processed_data/full_training_and_benchmark_results/`.

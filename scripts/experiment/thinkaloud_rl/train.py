@@ -15,7 +15,7 @@ import random
 import sys
 import time
 
-ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'scripts/experiment').is_dir() and (p / 'processed_data').is_dir())
+ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'scripts/experiment').is_dir() and (p / 'data').is_dir())
 HERE = ROOT/'processed_data/cognitive_priors_and_audits_from_transcripts'
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 import torch

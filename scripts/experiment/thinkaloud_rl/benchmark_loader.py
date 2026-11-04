@@ -17,7 +17,7 @@ from pathlib import Path
 import re
 import signal
 
-BENCHMARK_DIR = Path(os.environ.get("BENCHMARK_DIR", next(p for p in Path(__file__).resolve().parents if (p / 'scripts/experiment').is_dir() and (p / 'processed_data').is_dir()) / "data/benchmarks"))
+BENCHMARK_DIR = Path(os.environ.get("BENCHMARK_DIR", next(p for p in Path(__file__).resolve().parents if (p / 'scripts/experiment').is_dir() and (p / 'data').is_dir()) / "data/benchmarks"))
 
 SYSTEM_PROMPT = "Solve the requested task. Put a brief reasoning trace inside <think>...</think>, followed by your final answer."
 
