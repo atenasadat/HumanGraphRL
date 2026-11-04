@@ -70,24 +70,22 @@ def validate_response(text, candidate=None):
     if errors: return None, errors
     for key, value in obj['scores'].items():
         if type(value) is not int: errors.append('$.scores.' + key + ': expected an integer token')
-    misquoted = []
-    for i, claim in enumerate(obj['claims']):
-        if candidate is not None and (not claim['claim'].strip() or claim['claim'] not in candidate):
-            misquoted.append(i)
-        elif claim['kind'] in CHECKABLE and claim['verdict'] == 'supported' and not claim['evidence'].strip():
-            errors.append(f'$.claims.{i}.evidence: supported claims require nonempty evidence')
-    # A misquoted claim is harmless when it cannot affect the reward: non-factual kinds
-    # are never scored, and an answer already rejected on coherence, relevance or a
-    # severe flag stays rejected. Keep those for audit; otherwise a misquoted factual
-    # claim could hide a veto, so fail.
-    vetoed = obj['scores']['coherence'] < 2 or obj['scores']['relevance'] < 2 or bool(SEVERE_FLAGS & set(obj['flags']))
-    harmful = [i for i in misquoted if obj['claims'][i]['kind'] in CHECKABLE and not vetoed]
-    if misquoted and not harmful and not errors:
-        obj['discarded_claims'] = [obj['claims'][i] for i in misquoted]
-        obj['claims'] = [c for i, c in enumerate(obj['claims']) if i not in misquoted]
-    errors += [f'$.claims.{i}.claim: quote exact text from the candidate; no placeholders or invented claims'
-               for i in harmful]
+    # Small judges paraphrase quotes and omit evidence on long answers. These are
+    # reward noise, not infrastructure failures: match quotes after normalizing case,
+    # punctuation and whitespace, and never let an unmatched quote or an evidence-free
+    # factual claim count as supported. Downgrades can only lower the reward.
+    source = quote_key(candidate) if candidate is not None else None
+    for claim in obj['claims']:
+        key = quote_key(claim['claim'])
+        claim['quote_verified'] = source is None or bool(key) and key in source
+        unbacked = not claim['quote_verified'] or not claim['evidence'].strip()
+        if claim['kind'] in CHECKABLE and claim['verdict'] == 'supported' and unbacked:
+            claim['verdict'] = 'unverifiable'
     return (None if errors else obj), errors
+
+
+def quote_key(text):
+    return re.sub(r'\W+', ' ', text.casefold()).strip()
 
 
 def parse(text):
@@ -111,6 +109,7 @@ def result(obj):
     return {'quality_score': quality,
             'output_reward': 0. if risky else quality * (1 - UNSUPPORTED_PENALTY * unsupported),
             'risk_detected': risky, 'unsupported_claim_fraction': unsupported,
+            'unverified_quotes': sum(not c.get('quote_verified', True) for c in obj['claims']),
             'unsupported_penalty': UNSUPPORTED_PENALTY,
             'factuality_status': 'flagged_or_unverifiable' if risky else
                 'unsupported_background_penalized' if unsupported else 'judge_screened_not_verified',
