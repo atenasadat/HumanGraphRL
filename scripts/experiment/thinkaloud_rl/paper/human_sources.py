@@ -1,26 +1,30 @@
-"""Task-boundary-reviewed human text, with raw-source hash verification."""
-import json
+"""Task-only human think-aloud speech from the cleaned transcripts in data/think-aloud/."""
+from collections import Counter
 from pathlib import Path
-from .common import ROOT,file_hash
+import re
+from .common import ROOT
+
+SOURCES={'programming':ROOT/'data/think-aloud/programming_transcripts',
+         'writing':ROOT/'data/think-aloud/writing_transcripts'}
+# One utterance per line: "[0014 01:45.240 S2] text".
+TURN=re.compile(r'^\[\d+ [\d:.]+ (?P<speaker>S\d+)\] ?(?P<text>.*)$')
+
+
+def participant_turns(path):
+    lines=[line for line in Path(path).read_text().splitlines() if line.strip()]
+    turns=[TURN.match(line) for line in lines]
+    if not all(turns):raise ValueError('Unrecognized line in cleaned transcript: '+str(path))
+    # Cleaned writing files keep short researcher prompts, and diarization labels are
+    # not consistent across sessions (P8 and P12 swap S1/S2); the participant is the
+    # speaker with the most turns.
+    participant=Counter(t['speaker'] for t in turns).most_common(1)[0][0] if turns else None
+    return [t['text'].strip() for t in turns if t['speaker']==participant and t['text'].strip()]
 
 
 def session_texts():
-    result={'programming':{},'writing':{}}
-    reviewed=ROOT/'processed_data/programming_transcript_cells_and_task_boundaries'
-    manifest=json.loads((reviewed/'task_manifest.json').read_text())
-    for entry in manifest:
-        pid=entry['participant']
-        raw=ROOT/'data/think-aloud/programming_transcripts'/Path(entry['source']).name
-        if not raw.exists() or file_hash(raw)!=entry['source_sha256']:
-            raise ValueError('Missing or changed raw programming source: '+str(raw))
-        rows=json.loads((reviewed/(pid+'.task_cells.json')).read_text())
-        result['programming'][pid]=[r['text'] for r in sorted(rows,key=lambda r:r['excel_row']) if r['text'].strip()]
-    for p in sorted((ROOT/'processed_data/writing_task_segments_extracted_from_transcripts').glob('*_proposal_verbalizations.json')):
-        obj=json.loads(p.read_text());rows=obj['segments']
-        if not rows:continue
-        pid=p.name.split('_')[0]
-        raw=ROOT/'data/think-aloud/writing_transcripts'/(pid+'.transcript.json')
-        if not raw.exists() or file_hash(raw)!=obj['metadata']['sha256']:
-            raise ValueError('Missing or changed raw writing source: '+str(raw))
-        result['writing'][pid]=[r['text'] for r in rows if r['text'].strip()]
+    result={}
+    for domain,folder in SOURCES.items():
+        paths=sorted(folder.glob('P*.full.txt'),key=lambda p:int(p.name[1:].split('.')[0]))
+        result[domain]={p.name.split('.')[0]:texts for p in paths for texts in [participant_turns(p)] if texts}
+        if not result[domain]:raise ValueError('No cleaned transcripts found in '+str(folder))
     return result

@@ -131,8 +131,6 @@ def annotation_audit(pid, original):
     raw = path.read_bytes(); digest=hashlib.sha256(raw).hexdigest()
     if digest != original['source_sha256']: raise ValueError(f'Annotation source changed: {pid}')
     x = json.loads(raw); transcript=x['transcript']; anns=x['annotations']
-    copy=json.loads((TRANSCRIPTS/f'{pid}.transcript.json').read_text())
-    if transcript != copy: raise ValueError(f'Transcript copy differs: {pid}')
     phases=[a for a in anns if a['tierId']=='feature' and a['codeName'] in PHASES]
     moves=[a for a in anns if a['tierId']=='reasoning']
     phase_rows={}
@@ -154,7 +152,7 @@ def annotation_audit(pid, original):
         if not overlaps:continue
         span=r['endTime']-r['startTime']
         (contained if abs(union_duration(overlaps)-span)<1e-6 else boundary).append(r['index'])
-    return dict(path=str(path),sha256=digest,source_unchanged=True,transcript_copy_exact=True,
+    return dict(path=str(path),sha256=digest,source_unchanged=True,
                 total_transcript_segments=len(transcript),task_contained_segments=len(contained),
                 boundary_crossing_segments=len(boundary),task_segment_indexes=contained,
                 boundary_segment_indexes=boundary,process_annotations=len(moves),

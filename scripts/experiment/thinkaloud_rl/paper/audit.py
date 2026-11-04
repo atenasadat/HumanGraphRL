@@ -69,13 +69,13 @@ def gradient_audit(config,tasks,priors,out,lcb_root=None,adapter=None):
 
 
 def label_packet(output,model_samples=None,per_stratum=40,seed=2026):
-    here=ROOT/'processed_data/cognitive_priors_and_audits_from_transcripts';candidates=[]
-    for r in json.loads((here/'verbalizations_extracted_segments.json').read_text()):
-        for u in segment_thought_stream(r['text']):
-            candidates.append({'text':u,'source':'human_programming','participant':r['participant']})
-    for p in (ROOT/'processed_data/writing_task_segments_extracted_from_transcripts').glob('*_proposal_verbalizations.json'):
-        for r in json.loads(p.read_text())['segments']:
-            candidates.append({'text':r['text'],'source':'human_writing','participant':p.name.split('_')[0]})
+    from .human_sources import session_texts
+    candidates=[]
+    for domain,people in session_texts().items():
+        for pid,texts in people.items():
+            for text in texts:
+                for u in segment_thought_stream(text):
+                    candidates.append({'text':u,'source':'human_'+domain,'participant':pid})
     if model_samples:
         for p in Path(model_samples).rglob('samples/*.json'):
             r=json.loads(p.read_text())
