@@ -97,6 +97,7 @@ pilots/results/
 processed_data/full_training_and_benchmark_results/
 processed_data/v0_reasoning_graph_snapshots_from_study_sessions/
 .venv-paper/
+.venv-cot/
 
 scripts/experiment/.venv/
 scripts/experiment/.venv-paper/
