@@ -22,6 +22,29 @@ no VM and requires no CUDA packages.
 
 ## Create and connect (Cloud Shell)
 
+To try all supported zones with approved L4 quota, stopping at the first VM
+successfully created and staged:
+
+```bash
+bash scripts/simulated_cot/gcp_vm.sh create-any
+bash scripts/simulated_cot/gcp_vm.sh connect
+```
+
+The search keeps the same hardware configuration, prefers `us-central1` and
+`us-east1`, then other US regions, then the rest of the world. Regional prices
+vary. Regions without approved quota are skipped; the script does not submit
+quota requests. To restrict the search, set for example
+`COT_REGIONS="us-central1 us-east1"`. The exported `COT_ZONE` is ignored for
+`create-any`. Logs are saved under `processed_data/cloud_search/`.
+
+There is no guarantee of live capacity from the zone catalog: the script tests
+availability by trying actual creation sequentially. It stops on success, on an
+unexpected error, or if an instance with the same name already exists (including
+after an ambiguous failed API call). Concurrent searches in the same checkout
+are prevented by a lock. Connect/collect/stop discover the VM's actual zone.
+
+To try only a specific zone instead:
+
 ```bash
 bash scripts/simulated_cot/gcp_vm.sh create
 bash scripts/simulated_cot/gcp_vm.sh connect

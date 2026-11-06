@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run in Google Cloud Shell. Only "create" starts a billable GPU VM.
+# Run in Google Cloud Shell. "create" and "create-any" can start a billable VM.
 set -euo pipefail
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export PYTHONPATH="$PWD"
@@ -8,7 +8,21 @@ PROJECT="${COT_PROJECT:-reasonedllm}"
 ZONE="${COT_ZONE:-us-central1-a}"
 VM="${COT_VM:-cot-gpu}"
 
+# Management commands discover the actual VM zone, including after create-any.
+# This avoids accidentally using a stale exported COT_ZONE from an earlier try.
 case "$action" in
+    connect|collect|stop)
+        matches=$(gcloud compute instances list --project="$PROJECT" --filter="name=$VM" --format='value(zone)')
+        count=$(printf '%s\n' "$matches" | awk 'NF {n++} END {print n+0}')
+        [[ "$count" == 1 ]] || { echo "Expected one VM named $VM; found $count. Run gcloud compute instances list." >&2; exit 1; }
+        ZONE="${matches##*/}"
+        ;;
+esac
+
+case "$action" in
+    create-any)
+        exec python3 -m scripts.simulated_cot.find_vm
+        ;;
     check)
         python3 -m scripts.simulated_cot.generate --check-inputs
         bash -n scripts/simulated_cot/gcp_generate.sh
@@ -65,5 +79,5 @@ case "$action" in
     stop)
         exec gcloud compute instances stop "$VM" --project="$PROJECT" --zone="$ZONE"
         ;;
-    *) echo 'Usage: bash scripts/simulated_cot/gcp_vm.sh check|create|connect|collect|stop' >&2; exit 2 ;;
+    *) echo 'Usage: bash scripts/simulated_cot/gcp_vm.sh check|create|create-any|connect|collect|stop' >&2; exit 2 ;;
 esac

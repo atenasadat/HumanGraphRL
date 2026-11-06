@@ -119,6 +119,31 @@ class GenerationChecks(unittest.TestCase):
 
 
 class CloudLauncherChecks(unittest.TestCase):
+    def test_stop_discovers_actual_zone_instead_of_stale_environment(self):
+        source = Path(g.__file__).parent
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            package = root / 'scripts' / 'simulated_cot'
+            package.mkdir(parents=True)
+            shutil.copyfile(source / 'gcp_vm.sh', package / 'gcp_vm.sh')
+            fake_bin = root / 'bin'
+            fake_bin.mkdir()
+            calls = root / 'calls'
+            fake_gcloud = fake_bin / 'gcloud'
+            fake_gcloud.write_text(
+                f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{calls}"\n'
+                'if [ "$3" = list ]; then echo https://example/zones/us-east1-c; fi\nexit 0\n')
+            fake_gcloud.chmod(0o755)
+            env = dict(os.environ, PATH=str(fake_bin) + os.pathsep + os.environ['PATH'],
+                       COT_PROJECT='test-project', COT_VM='test-vm', COT_ZONE='us-central1-b')
+            result = subprocess.run(['bash', str(package / 'gcp_vm.sh'), 'stop'],
+                                    env=env, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            stop = calls.read_text().splitlines()[-1]
+            self.assertIn('compute instances stop test-vm', stop)
+            self.assertIn('--zone=us-east1-c', stop)
+            self.assertNotIn('us-central1-b', stop)
+
     def test_missing_inputs_prevent_cloud_resource_creation(self):
         source = Path(g.__file__).parent
         with tempfile.TemporaryDirectory() as tmp:
