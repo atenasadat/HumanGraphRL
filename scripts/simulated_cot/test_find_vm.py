@@ -1,7 +1,9 @@
 """Quota selection and one-VM safeguards; no real cloud resources are created."""
 import contextlib
 import io
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -19,7 +21,7 @@ class FindVMChecks(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             return f.search('test-project', 'test-vm', zones, self.logs)
 
-    def test_quota_overrides_defaults_and_skips_unapproved_or_smaller_machines(self):
+    def test_quota_overrides_defaults_and_skips_unapproved_or_other_gpu_types(self):
         quota = {'dimensionsInfos': [
             {'dimensions': {}, 'details': {}},
             {'dimensions': {'gpu_family': 'NVIDIA_L4'},
@@ -33,12 +35,54 @@ class FindVMChecks(unittest.TestCase):
         self.assertEqual(f.l4_quota(quota, 'us-east1'), 1)
         self.assertEqual(f.l4_quota(quota, 'us-west1'), 0)
         self.assertEqual(f.l4_quota(quota, 'europe-west1'), 0)
-        catalog = [dict(name='g2-standard-16', guestCpus=16, memoryMb=65536,
+        catalog = [dict(name='nvidia-l4',
                         zone=f'https://example/zones/{z}')
                    for z in ['us-east1-c', 'us-central1-c', 'us-west1-a', 'europe-west1-b']]
-        catalog.append(dict(name='g2-standard-16', guestCpus=16, memoryMb=32768, zone='us-east1-b'))
+        catalog.append(dict(name='nvidia-tesla-t4', zone='us-east1-b'))
         self.assertEqual(f.candidate_zones(catalog, quota), ['us-central1-c', 'us-east1-c'])
         self.assertEqual(f.candidate_zones(catalog, quota, ['us-east1']), ['us-east1-c'])
+
+    def test_metadata_lookup_reports_progress_and_parses_json(self):
+        executable = self.logs / 'gcloud'
+        executable.write_text('#!/bin/sh\nprintf \'[{"name":"nvidia-l4","zone":"us-east1-b"}]\'\n')
+        executable.chmod(0o755)
+        output = io.StringIO()
+        with patch.dict(os.environ, PATH=str(self.logs) + os.pathsep + os.environ['PATH']), \
+                contextlib.redirect_stdout(output):
+            result = f.cloud_json('test-project', 'compute', 'accelerator-types', 'list')
+        self.assertEqual(result[0]['name'], 'nvidia-l4')
+        self.assertIn('Checking compute accelerator-types list', output.getvalue())
+
+    def test_metadata_lookup_timeout_kills_stalled_process(self):
+        executable = self.logs / 'gcloud'
+        executable.write_text('#!/bin/sh\nexec sleep 30\n')
+        executable.chmod(0o755)
+        original_popen = subprocess.Popen
+        children = []
+        def start_process(*args, **kwargs):
+            process = original_popen(*args, **kwargs)
+            children.append(process)
+            return process
+        with patch.dict(os.environ, PATH=str(self.logs) + os.pathsep + os.environ['PATH']), \
+                patch.object(f.subprocess, 'Popen', side_effect=start_process), \
+                contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, 'timed out'):
+                f.cloud_json('test-project', 'compute', 'accelerator-types', 'list', timeout=0.1)
+        self.assertEqual(len(children), 1)
+        self.assertIsNotNone(children[0].poll(), 'Timed-out gcloud process was left running')
+
+    def test_metadata_lookup_heartbeat_before_slow_response(self):
+        from unittest.mock import MagicMock
+        process = MagicMock()
+        process.communicate.side_effect = [subprocess.TimeoutExpired('gcloud', 10), ('[]', '')]
+        process.returncode = 0
+        process.poll.return_value = 0
+        process.__enter__.return_value = process
+        output = io.StringIO()
+        with patch.object(f.subprocess, 'Popen', return_value=process), \
+                contextlib.redirect_stdout(output):
+            self.assertEqual(f.cloud_json('test-project', 'compute', 'instances', 'list'), [])
+        self.assertIn('Still checking compute instances list', output.getvalue())
 
     def test_capacity_failure_then_success_stops_before_third_zone(self):
         with patch.object(f, 'require_no_vm'), patch.object(f, 'attempt', side_effect=[

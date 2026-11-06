@@ -42,6 +42,9 @@ availability by trying actual creation sequentially. It stops on success, on an
 unexpected error, or if an instance with the same name already exists (including
 after an ambiguous failed API call). Concurrent searches in the same checkout
 are prevented by a lock. Connect/collect/stop discover the VM's actual zone.
+Zone discovery queries only NVIDIA L4 accelerator types, rather than the full
+worldwide VM machine-type catalog. Metadata requests print progress every ten
+seconds and stop after a 120-second timeout if Google does not respond.
 
 To try only a specific zone instead:
 

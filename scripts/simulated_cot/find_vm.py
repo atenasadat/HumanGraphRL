@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 
 from scripts.simulated_cot.generate import check_inputs, DOMAINS
@@ -13,12 +14,29 @@ from scripts.simulated_cot.generate import check_inputs, DOMAINS
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def cloud_json(project, *args):
-    result = subprocess.run(['gcloud', *args, f'--project={project}', '--format=json'],
-                            capture_output=True, text=True)
-    if result.returncode:
-        raise RuntimeError(result.stderr.strip() or result.stdout.strip())
-    return json.loads(result.stdout)
+def cloud_json(project, *args, timeout=120):
+    label = ' '.join(args[:3])
+    print(f'Checking {label} ...', flush=True)
+    started = time.monotonic()
+    with subprocess.Popen(['gcloud', *args, f'--project={project}', '--format=json'],
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
+        try:
+            while True:
+                remaining = timeout - (time.monotonic() - started)
+                if remaining <= 0:
+                    raise RuntimeError(f'{label} timed out after {timeout}s. Search stopped; no further VM attempts.')
+                try:
+                    stdout, stderr = process.communicate(timeout=min(10, remaining))
+                    break
+                except subprocess.TimeoutExpired:
+                    print(f'Still checking {label} ({int(time.monotonic() - started)}s elapsed) ...', flush=True)
+            if process.returncode:
+                raise RuntimeError(stderr.strip() or stdout.strip())
+            return json.loads(stdout)
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.communicate()
 
 
 def l4_quota(info, region):
@@ -39,11 +57,12 @@ def l4_quota(info, region):
 
 def candidate_zones(catalog, quota, regions=()):
     zones = set()
-    for machine in catalog:
-        if (machine.get('name') != 'g2-standard-16' or machine.get('guestCpus', 0) < 16
-                or machine.get('memoryMb', 0) < 65536):
+    for accelerator in catalog:
+        # Creation still pins g2-standard-16 (16 vCPUs, 64GiB RAM, one L4).
+        # Do not enumerate every VM machine type worldwide just to find L4 zones.
+        if accelerator.get('name') != 'nvidia-l4':
             continue
-        zone = machine['zone'].rsplit('/', 1)[-1]
+        zone = accelerator['zone'].rsplit('/', 1)[-1]
         region = zone.rsplit('-', 1)[0]
         if regions and region not in regions:
             continue
@@ -131,7 +150,7 @@ def main():
         except BlockingIOError:
             raise RuntimeError('Another VM search is already running in this checkout') from None
         require_no_vm(project, vm)
-        catalog = cloud_json(project, 'compute', 'machine-types', 'list', '--filter=name=g2-standard-16')
+        catalog = cloud_json(project, 'compute', 'accelerator-types', 'list', '--filter=name=nvidia-l4')
         quota = cloud_json(project, 'quotas', 'info', 'describe',
                            'GPUS-PER-GPU-FAMILY-per-project-region',
                            '--service=compute.googleapis.com', f'--billing-project={project}')
