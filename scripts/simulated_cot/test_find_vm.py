@@ -42,6 +42,26 @@ class FindVMChecks(unittest.TestCase):
         self.assertEqual(f.candidate_zones(catalog, quota), ['us-central1-c', 'us-east1-c'])
         self.assertEqual(f.candidate_zones(catalog, quota, ['us-east1']), ['us-east1-c'])
 
+    def test_live_gcloud_value_field_selects_approved_l4_zone(self):
+        # Shape returned by the user's actual Cloud Shell request.
+        quota = {'dimensionsInfos': [{
+            'applicableLocations': ['us-central1'],
+            'details': {'value': '1'},
+            'dimensions': {'gpu_family': 'NVIDIA_L4', 'region': 'us-central1'},
+        }]}
+        catalog = [{'name': 'nvidia-l4', 'maximumCardsPerInstance': 8,
+                    'zone': 'https://www.googleapis.com/compute/v1/projects/reasonedllm/zones/us-central1-a'}]
+        self.assertEqual(f.l4_quota(quota, 'us-central1'), 1)
+        self.assertEqual(f.l4_quota(quota, 'us-east1'), 0)
+        self.assertEqual(f.candidate_zones(catalog, quota), ['us-central1-a'])
+
+    def test_explicit_zero_value_overrides_old_quota_value(self):
+        quota = {'dimensionsInfos': [{
+            'details': {'value': '0', 'quotaValue': '1'},
+            'dimensions': {'gpu_family': 'NVIDIA_L4', 'region': 'us-central1'},
+        }]}
+        self.assertEqual(f.l4_quota(quota, 'us-central1'), 0)
+
     def test_metadata_lookup_reports_progress_and_parses_json(self):
         executable = self.logs / 'gcloud'
         executable.write_text('#!/bin/sh\nprintf \'[{"name":"nvidia-l4","zone":"us-east1-b"}]\'\n')

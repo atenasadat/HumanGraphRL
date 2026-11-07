@@ -51,7 +51,10 @@ def l4_quota(info, region):
         locations = item.get('applicableLocations', [])
         if locations and region not in locations:
             continue
-        matches.append((len(dims), float(item.get('details', {}).get('quotaValue', 0))))
+        details = item.get('details', {})
+        # gcloud/API versions expose the effective limit as either field.
+        value = details.get('value', details.get('quotaValue', 0))
+        matches.append((len(dims), float(value)))
     return max(matches, default=(0, 0))[1]
 
 
